@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+*.egg-info
+dist
+build
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Tests
+.pytest_cache
+.coverage
+htmlcov
+tests/
+
+# Docs
+docs/
+
+# CI
+.github/
+
+# Local config
+*.yml
+*.yaml
+!pyproject.toml
