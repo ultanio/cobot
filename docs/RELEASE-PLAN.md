@@ -277,9 +277,17 @@ Use [git-cliff](https://github.com/orhun/git-cliff) or similar for automatic cha
 
 ## Summary: What You Need To Do (👤 k9ert)
 
+### Repository Protection (Priority)
+
+1. **Enable branch protection on `main`** (Settings → Branches → Add rule)
+   - Require pull request before merging
+   - Require status checks to pass (CI)
+   - Do not allow bypassing the above settings
+   - *Doxios cannot do this - requires admin permissions*
+
 ### For v0.1.0 (Now)
 
-1. **Sign SHA256SUMS with your npub** after I create the release draft
+2. **Sign SHA256SUMS with your npub** after I create the release draft
 
 ### For Automation (After v0.1.0)
 
