@@ -8,21 +8,17 @@ on:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
-    
+    runs-on: docker
+    container: python:3.11-bookworm
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
+
       - name: Install cobot
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-      
+
       - name: Run E2E tests
         env:
           PPQ_API_KEY: ${{ secrets.PPQ_API_KEY }}
