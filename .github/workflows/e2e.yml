@@ -8,8 +8,7 @@ on:
 
 jobs:
   e2e:
-    runs-on: docker
-    container: python:3.11-bookworm
+    runs-on: python-3.11
 
     steps:
       - uses: actions/checkout@v4
