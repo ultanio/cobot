@@ -273,18 +273,18 @@ class TestHookMethods:
     """Test hook method constants."""
 
     def test_hook_methods_defined(self):
-        # Core hooks
-        assert "on_message_received" in HOOK_METHODS
-        assert "on_before_llm_call" in HOOK_METHODS
-        assert "on_after_llm_call" in HOOK_METHODS
-        assert "on_before_tool_exec" in HOOK_METHODS
-        assert "on_after_tool_exec" in HOOK_METHODS
-        assert "on_error" in HOOK_METHODS
+        # Core hooks (now namespaced under loop.*)
+        assert "loop.on_message" in HOOK_METHODS
+        assert "loop.before_llm" in HOOK_METHODS
+        assert "loop.after_llm" in HOOK_METHODS
+        assert "loop.before_tool" in HOOK_METHODS
+        assert "loop.after_tool" in HOOK_METHODS
+        assert "loop.on_error" in HOOK_METHODS
 
         # Transform hooks
-        assert "transform_system_prompt" in HOOK_METHODS
-        assert "transform_history" in HOOK_METHODS
-        assert "transform_response" in HOOK_METHODS
+        assert "loop.transform_system_prompt" in HOOK_METHODS
+        assert "loop.transform_history" in HOOK_METHODS
+        assert "loop.transform_response" in HOOK_METHODS
 
 
 class TestInterfaces:

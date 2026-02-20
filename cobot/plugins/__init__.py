@@ -214,21 +214,11 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
     # Start all plugins (async)
     await registry.start_all()
 
-    # Give tools and compaction access to registry
-    tools = registry.get("tools")
-    if tools and hasattr(tools, "set_registry"):
-        tools.set_registry(registry)
-
-    compaction = registry.get("compaction")
-    if compaction and hasattr(compaction, "set_registry"):
-        compaction.set_registry(registry)
-
     return registry
 
 
-# Convenience functions for hook execution
 async def run(hook_name: str, ctx: dict) -> dict:
-    """Run a hook on all plugins (async)."""
+    """Run a hook/extension chain through the registry. Convenience wrapper."""
     return await get_registry().run_hook(hook_name, ctx)
 
 

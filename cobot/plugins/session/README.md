@@ -229,35 +229,18 @@ Examples: Discord (gateway), Slack (events API), Telegram (webhook mode)
 
 The agent doesn't care which type - it just calls `session.poll_all_channels()`.
 
-## Agent Integration
+## Loop Integration
 
-The agent loop drives session:
+The loop plugin drives session via the communication layer:
 
 ```python
-class Agent:
-    async def run_loop(self):
-        session = self._registry.get_plugin("session")
-        
-        while True:
-            # Get messages from all channels
-            messages = session.poll_all_channels()
-            
-            for msg in messages:
-                # Show typing while processing
-                session.typing(msg.channel_type, msg.channel_id)
-                
-                # Process and respond
-                response = await self.process(msg)
-                
-                # Send back to same channel
-                session.send(OutgoingMessage(
-                    channel_type=msg.channel_type,
-                    channel_id=msg.channel_id,
-                    content=response,
-                    reply_to=msg.id,
-                ))
-            
-            await asyncio.sleep(1)
+# The loop plugin (not agent.py) handles the poll → respond cycle:
+#
+# comm.poll() → session.poll_all_channels() → [telegram, discord, ...]
+# comm.send() → session.send() → route to correct channel
+#
+# The agent is a minimal runner that asyncio.gather's all loop plugins.
+# See the loop plugin README for the full pipeline.
 ```
 
 ## Configuration

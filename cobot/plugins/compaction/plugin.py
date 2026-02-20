@@ -23,10 +23,13 @@ class CompactionPlugin(Plugin):
         capabilities=["compaction"],
         dependencies=["config", "persistence"],
         priority=16,
+        implements={
+            "loop.transform_history": "transform_history",
+        },
     )
 
     def __init__(self):
-        self._registry = None
+        pass
 
     def configure(self, config: dict) -> None:
         pass
@@ -36,10 +39,6 @@ class CompactionPlugin(Plugin):
 
     async def stop(self) -> None:
         pass
-
-    def set_registry(self, registry) -> None:
-        """Set registry reference for LLM access."""
-        self._registry = registry
 
     def _estimate_tokens(self, messages: list[dict]) -> int:
         total = sum(len(m.get("content", "")) for m in messages)

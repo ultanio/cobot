@@ -98,10 +98,16 @@ we discussed the timeline. User seemed satisfied with the plan.
 ---
 ```
 
-## Hooks
+## Extension Points
+
+**Implements:**
+
+| Extension Point | Method | Description |
+|-----------------|--------|-------------|
+| `loop.transform_history` | `transform_history` | Auto-compacts history if over token budget |
 
 ```python
-def transform_history(self, ctx):
+async def transform_history(self, ctx: dict) -> dict:
     messages = ctx.get("messages", [])
     if self.should_compact(messages):
         ctx["messages"] = self.compact(messages)

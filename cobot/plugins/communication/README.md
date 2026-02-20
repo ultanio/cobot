@@ -90,17 +90,19 @@ class OutgoingMessage:
     metadata: dict = {}      # Channel-specific options
 ```
 
-## Agent Usage
+## Usage
+
+The loop plugin drives communication — the agent itself is a minimal runner:
 
 ```python
-# In agent.py
+# In the loop plugin (not agent.py)
 comm = registry.get("communication")
 
 # Poll all channels
 messages = comm.poll()
 for msg in messages:
     comm.typing(msg.channel_type, msg.channel_id)
-    response = process(msg)
+    response = await self._respond(msg.content)
     comm.send(OutgoingMessage(
         channel_type=msg.channel_type,
         channel_id=msg.channel_id,

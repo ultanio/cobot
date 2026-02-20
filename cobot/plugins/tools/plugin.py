@@ -162,7 +162,6 @@ class ToolsPlugin(Plugin, ToolProvider):
         self._exec_timeout: int = 30
         self._context_budget: int = 64000
         self._restart_requested: bool = False
-        self._registry = None  # Set by agent
 
     def configure(self, config: dict) -> None:
         """Receive tools configuration."""
@@ -182,10 +181,6 @@ class ToolsPlugin(Plugin, ToolProvider):
     async def stop(self) -> None:
         """Nothing to clean up."""
         pass
-
-    def set_registry(self, registry) -> None:
-        """Set registry reference for wallet access."""
-        self._registry = registry
 
     # --- ToolProvider Interface ---
 

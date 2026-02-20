@@ -27,7 +27,7 @@ class ContextPlugin(Plugin):
     )
 
     def __init__(self):
-        self._registry = None
+        pass
 
     def configure(self, config: dict) -> None:
         """Store configuration."""

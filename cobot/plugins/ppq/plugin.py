@@ -29,6 +29,10 @@ class PPQPlugin(Plugin, LLMProvider):
         capabilities=["llm"],
         dependencies=["config"],
         priority=20,
+        implements={
+            "loop.before_llm": "on_before_llm_call",
+            "loop.after_llm": "on_after_llm_call",
+        },
     )
 
     def __init__(self):

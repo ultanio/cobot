@@ -2,11 +2,20 @@
 
 All plugins must inherit from Plugin and define a PluginMeta.
 
-NOTE: As of v0.2.0, all plugin lifecycle methods are async.
+NOTE: As of v0.3.0, hooks are replaced by extension points.
+All inter-plugin communication uses call_extension().
 """
 
+from __future__ import annotations
+
+import asyncio
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .registry import PluginRegistry
 
 
 @dataclass
@@ -40,8 +49,12 @@ class Plugin(ABC):
     Plugins must:
     1. Define a `meta` class attribute with PluginMeta
     2. Implement configure(), start(), stop()
-    3. Optionally implement hook methods (on_message_received, etc.)
-    4. Optionally implement capability interfaces (LLMProvider, etc.)
+    3. Optionally implement capability interfaces (LLMProvider, etc.)
+    4. Use meta.implements to declare extension point implementations
+
+    The registry is auto-injected as self._registry before start().
+    Use self.call_extension() to invoke extension points defined by
+    other plugins.
 
     Example:
         class MyPlugin(Plugin):
@@ -51,21 +64,27 @@ class Plugin(ABC):
                 capabilities=["llm"],
                 dependencies=["config"],
                 priority=20,
+                implements={
+                    "loop.on_message": "handle_message",
+                },
             )
 
             def configure(self, config: dict) -> None:
                 self._config = config
 
-            def start(self) -> None:
-                # Initialize resources
+            async def start(self) -> None:
                 pass
 
-            def stop(self) -> None:
-                # Clean up
+            async def stop(self) -> None:
                 pass
+
+            async def handle_message(self, ctx: dict) -> dict:
+                # Process message
+                return ctx
     """
 
     meta: PluginMeta  # Must be defined by subclass
+    _registry: PluginRegistry | None = None  # Auto-injected by registry
 
     def configure(self, config: dict) -> None:
         """Receive plugin-specific configuration.
@@ -83,7 +102,7 @@ class Plugin(ABC):
         """Initialize the plugin.
 
         Called after all plugins are configured, in dependency order.
-        Initialize clients, connections, etc. here.
+        self._registry is available at this point.
         """
         pass
 
@@ -92,56 +111,71 @@ class Plugin(ABC):
         """Clean up plugin resources.
 
         Called on shutdown, in reverse dependency order.
-        Close connections, release resources, etc.
         """
         pass
 
-    # --- Optional Hook Methods ---
-    # Override these to handle lifecycle events
-    # All hooks are async to allow non-blocking operations
+    # --- Extension Point Dispatch ---
 
-    async def on_message_received(self, ctx: dict) -> dict:
-        """Called when a message is received."""
-        return ctx
+    async def call_extension(self, point: str, ctx: dict | None = None) -> list:
+        """Call all implementations of an extension point and collect results.
 
-    async def transform_system_prompt(self, ctx: dict) -> dict:
-        """Called to transform the system prompt."""
-        return ctx
+        Args:
+            point: Extension point name (e.g., "context.system_prompt")
+            ctx: Optional context dict to pass to each implementer
 
-    async def transform_history(self, ctx: dict) -> dict:
-        """Called to transform conversation history."""
-        return ctx
+        Returns:
+            List of non-None results from implementers
+        """
+        if not self._registry:
+            return []
+        results = []
+        for pid, plugin, method_name in self._registry.get_implementations(point):
+            try:
+                method = getattr(plugin, method_name)
+                if asyncio.iscoroutinefunction(method):
+                    result = await method(ctx) if ctx is not None else await method()
+                else:
+                    result = method(ctx) if ctx is not None else method()
+                if result is not None:
+                    results.append(result)
+            except Exception as e:
+                print(
+                    f"[{self.meta.id}] Error in {pid}.{method_name}: {e}",
+                    file=sys.stderr,
+                )
+        return results
 
-    async def on_before_llm_call(self, ctx: dict) -> dict:
-        """Called before LLM inference."""
-        return ctx
+    async def call_extension_chain(self, point: str, ctx: dict) -> dict:
+        """Call extension point implementations as a chain.
 
-    async def on_after_llm_call(self, ctx: dict) -> dict:
-        """Called after LLM inference."""
-        return ctx
+        Each implementer receives and returns ctx. If any sets
+        ctx["abort"] = True, the chain stops.
 
-    async def on_before_tool_exec(self, ctx: dict) -> dict:
-        """Called before tool execution."""
-        return ctx
+        Args:
+            point: Extension point name
+            ctx: Context dict flowing through the chain
 
-    async def on_after_tool_exec(self, ctx: dict) -> dict:
-        """Called after tool execution."""
-        return ctx
-
-    async def transform_response(self, ctx: dict) -> dict:
-        """Called to transform the response before sending."""
-        return ctx
-
-    async def on_before_send(self, ctx: dict) -> dict:
-        """Called before sending a message."""
-        return ctx
-
-    async def on_after_send(self, ctx: dict) -> dict:
-        """Called after sending a message."""
-        return ctx
-
-    async def on_error(self, ctx: dict) -> dict:
-        """Called when an error occurs."""
+        Returns:
+            Modified context dict
+        """
+        if not self._registry:
+            return ctx
+        for pid, plugin, method_name in self._registry.get_implementations(point):
+            try:
+                method = getattr(plugin, method_name)
+                if asyncio.iscoroutinefunction(method):
+                    result = await method(ctx)
+                else:
+                    result = method(ctx)
+                if result is not None:
+                    ctx = result
+                if ctx.get("abort"):
+                    break
+            except Exception as e:
+                print(
+                    f"[{self.meta.id}] Error in {pid}.{method_name}: {e}",
+                    file=sys.stderr,
+                )
         return ctx
 
     # --- CLI Extension ---
@@ -154,13 +188,6 @@ class Plugin(ABC):
 
         Args:
             cli: Click group (the main cobot CLI)
-
-        Example:
-            def register_commands(self, cli):
-                @cli.command()
-                def my_command():
-                    '''My plugin command.'''
-                    click.echo("Hello from plugin!")
         """
         pass
 
@@ -169,72 +196,35 @@ class Plugin(ABC):
     def wizard_section(self) -> dict | None:
         """Return wizard section info for this plugin.
 
-        If the plugin wants to participate in the setup wizard, return
-        a dict describing the section. Return None to skip.
-
         Returns:
-            dict with keys:
-                - key: Config key (e.g., "telegram")
-                - name: Display name (e.g., "Telegram")
-                - description: Short description
-            or None to not participate in wizard
-
-        Example:
-            def wizard_section(self):
-                return {
-                    "key": "telegram",
-                    "name": "Telegram",
-                    "description": "Multi-group logging and archival"
-                }
+            dict with keys: key, name, description — or None to skip.
         """
         return None
 
     def wizard_configure(self, config: dict) -> dict:
         """Interactive configuration for the setup wizard.
 
-        Called when user chooses to configure this plugin in the wizard.
-        Use click.prompt/confirm/echo for user interaction.
-
         Args:
-            config: Configuration dict built so far (identity, provider, etc.)
+            config: Configuration dict built so far
 
         Returns:
             Configuration dict for this plugin's section
-
-        Example:
-            def wizard_configure(self, config: dict) -> dict:
-                import click
-
-                agent_name = config.get("identity", {}).get("name", "Agent")
-                click.echo(f"Setting up Telegram for {agent_name}")
-
-                token = click.prompt("Bot token", default="${TELEGRAM_BOT_TOKEN}")
-
-                groups = []
-                while click.confirm("Add a group?", default=len(groups) == 0):
-                    group_id = click.prompt("Group ID", type=int)
-                    group_name = click.prompt("Group name")
-                    groups.append({"id": group_id, "name": group_name})
-
-                return {
-                    "bot_token": token,
-                    "groups": groups,
-                }
         """
         return {}
 
 
-# List of all hook method names
+# Legacy hook names — kept for reference during migration.
+# These are now extension points on the loop plugin.
 HOOK_METHODS = [
-    "on_message_received",
-    "transform_system_prompt",
-    "transform_history",
-    "on_before_llm_call",
-    "on_after_llm_call",
-    "on_before_tool_exec",
-    "on_after_tool_exec",
-    "transform_response",
-    "on_before_send",
-    "on_after_send",
-    "on_error",
+    "loop.on_message",
+    "loop.transform_system_prompt",
+    "loop.transform_history",
+    "loop.before_llm",
+    "loop.after_llm",
+    "loop.before_tool",
+    "loop.after_tool",
+    "loop.transform_response",
+    "loop.before_send",
+    "loop.after_send",
+    "loop.on_error",
 ]

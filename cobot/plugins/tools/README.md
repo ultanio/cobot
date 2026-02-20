@@ -37,6 +37,12 @@ The tools plugin exposes capabilities to the LLM as function calls. It handles f
 **Defines:** None  
 **Implements:** None
 
+The tools plugin is accessed via the `tools` capability interface. The loop plugin
+calls `tools.get_definitions()` and `tools.execute()` directly during the tool call
+cycle. Tool execution is gated by `loop.before_tool` / `loop.after_tool` extension
+points (defined by the loop plugin) which other plugins can implement for security
+filtering or logging.
+
 ## Available Tools
 
 | Tool | Description |

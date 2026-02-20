@@ -78,9 +78,7 @@ class PairingPlugin(Plugin):
 
         # Get communication plugin for sending responses
         try:
-            from ..registry import get_registry
-
-            registry = get_registry()
+            registry = self._registry
             if registry:
                 self._comm = registry.get("communication")
         except Exception:

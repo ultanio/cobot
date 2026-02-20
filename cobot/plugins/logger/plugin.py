@@ -1,4 +1,4 @@
-"""Logger plugin - logs lifecycle events.
+"""Logger plugin - logs lifecycle events via extension points.
 
 Priority: 5 (very early, logs everything)
 """
@@ -19,6 +19,15 @@ class LoggerPlugin(Plugin):
         capabilities=["logging"],
         dependencies=[],
         priority=5,
+        implements={
+            "loop.on_message": "log_message_received",
+            "loop.before_llm": "log_before_llm",
+            "loop.after_llm": "log_after_llm",
+            "loop.before_tool": "log_before_tool",
+            "loop.after_tool": "log_after_tool",
+            "loop.after_send": "log_after_send",
+            "loop.on_error": "log_error",
+        },
     )
 
     def __init__(self):
@@ -47,41 +56,36 @@ class LoggerPlugin(Plugin):
             parts.append(json.dumps(extra, default=str))
         print(" ".join(parts), file=sys.stderr, flush=True)
 
-    # --- Hook Methods ---
+    # --- Extension Point Implementations ---
 
-    async def on_message_received(self, ctx: dict) -> dict:
+    async def log_message_received(self, ctx: dict) -> dict:
         msg = ctx.get("message", "")[:50]
         sender = ctx.get("sender", "")[:16]
         self._log("info", "msg_recv", f"From {sender}...", content=msg)
         return ctx
 
-    async def on_before_llm_call(self, ctx: dict) -> dict:
+    async def log_before_llm(self, ctx: dict) -> dict:
         model = ctx.get("model", "")
         messages = ctx.get("messages", [])
-
-        # Log message count and system prompt preview
         sys_prompt = ""
         for m in messages:
             if m.get("role") == "system":
                 sys_prompt = m.get("content", "")[:200]
                 break
-
         self._log("debug", "llm_call", f"Calling {model} ({len(messages)} msgs)")
         if sys_prompt:
             self._log("debug", "llm_call", f"System: {sys_prompt}...")
         return ctx
 
-    async def on_after_llm_call(self, ctx: dict) -> dict:
+    async def log_after_llm(self, ctx: dict) -> dict:
         tokens_in = ctx.get("tokens_in", 0)
         tokens_out = ctx.get("tokens_out", 0)
         self._log("info", "llm_done", f"Tokens: {tokens_in}→{tokens_out}")
         return ctx
 
-    async def on_before_tool_exec(self, ctx: dict) -> dict:
+    async def log_before_tool(self, ctx: dict) -> dict:
         tool = ctx.get("tool", "")
         args = ctx.get("args", {})
-
-        # Format args for readability
         if tool == "read_file":
             detail = args.get("path", "?")
         elif tool == "write_file":
@@ -96,34 +100,27 @@ class LoggerPlugin(Plugin):
             cmd = args.get("command", "?")
             detail = cmd[:80] + ("..." if len(cmd) > 80 else "")
         else:
-            # Generic: show first arg value
             detail = str(list(args.values())[0])[:60] if args else ""
-
         self._log("info", "tool", f"{tool}: {detail}")
         return ctx
 
-    async def on_after_tool_exec(self, ctx: dict) -> dict:
+    async def log_after_tool(self, ctx: dict) -> dict:
         tool = ctx.get("tool", "")
         result = ctx.get("result", "")
-
-        # Truncate long results
         if len(result) > 100:
             result_preview = result[:100] + f"... ({len(result)} chars)"
         else:
             result_preview = result
-
-        # Remove newlines for log readability
         result_preview = result_preview.replace("\n", "\\n")
-
         self._log("info", "tool_done", f"{tool} → {result_preview}")
         return ctx
 
-    async def on_after_send(self, ctx: dict) -> dict:
+    async def log_after_send(self, ctx: dict) -> dict:
         recipient = ctx.get("recipient", "")[:16]
         self._log("info", "send", f"Sent to {recipient}...")
         return ctx
 
-    async def on_error(self, ctx: dict) -> dict:
+    async def log_error(self, ctx: dict) -> dict:
         error = ctx.get("error", "")
         hook = ctx.get("hook", "")
         self._log("error", "error", f"In {hook}: {error}")

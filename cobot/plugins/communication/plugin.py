@@ -12,7 +12,6 @@ from datetime import datetime
 from typing import Optional
 
 from ..base import Plugin, PluginMeta
-from ..registry import get_registry
 
 
 @dataclass
@@ -68,7 +67,6 @@ class CommunicationPlugin(Plugin):
     )
 
     def __init__(self):
-        self._registry = None
         self._config = {}
 
     def configure(self, config: dict) -> None:
@@ -77,8 +75,6 @@ class CommunicationPlugin(Plugin):
 
     async def start(self) -> None:
         """Initialize communication aggregator."""
-        if self._registry is None:
-            self._registry = get_registry()
         print("[Communication] Ready (extension point definer)", file=sys.stderr)
 
     async def stop(self) -> None:

@@ -15,7 +15,7 @@ import sys
 from typing import Optional, Type
 from collections import defaultdict
 
-from .base import Plugin, PluginMeta, HOOK_METHODS
+from .base import Plugin, PluginMeta
 
 
 class PluginError(Exception):
@@ -201,9 +201,17 @@ class PluginRegistry:
                 raise PluginError(f"Configuration failed for '{plugin_id}': {e}")
 
     async def start_all(self) -> None:
-        """Start all plugins in dependency order."""
+        """Start all plugins in dependency order.
+
+        Injects self as _registry into every plugin before starting,
+        so plugins can use call_extension() without manual wiring.
+        """
         if self._started:
             return
+
+        # Auto-inject registry into all plugins
+        for plugin in self._plugins.values():
+            plugin._registry = self
 
         for plugin_id in self._load_order:
             plugin = self._plugins[plugin_id]
@@ -234,53 +242,15 @@ class PluginRegistry:
         self._started = False
 
     async def run_hook(self, hook_name: str, ctx: dict) -> dict:
-        """Run a hook on all plugins that implement it.
+        """DEPRECATED: Use plugin.call_extension_chain() instead.
 
-        Hooks are run in load order. Each plugin can modify the context.
-        If a plugin sets ctx["abort"] = True, the chain stops.
-
-        Args:
-            hook_name: Name of the hook method
-            ctx: Context dict to pass through
-
-        Returns:
-            Modified context dict
+        Kept for backwards compatibility during migration.
         """
-        if hook_name not in HOOK_METHODS:
-            return ctx
-
-        for plugin_id in self._load_order:
-            plugin = self._plugins[plugin_id]
-
-            # Check if plugin overrides this hook
-            method = getattr(plugin, hook_name, None)
-            if method is None:
-                continue
-
-            # Check if it's actually overridden (not just inherited from Plugin)
-            if method.__func__ is getattr(Plugin, hook_name, None):
-                continue
-
-            try:
-                result = await method(ctx)
-                if result is not None:
-                    ctx = result
-                if ctx.get("abort"):
-                    break
-            except Exception as e:
-                print(
-                    f"[Registry] Error in {plugin_id}.{hook_name}: {e}", file=sys.stderr
-                )
-                if hook_name != "on_error":
-                    await self.run_hook(
-                        "on_error",
-                        {
-                            "error": e,
-                            "hook": hook_name,
-                            "plugin": plugin_id,
-                        },
-                    )
-
+        print(
+            f"[Registry] Warning: run_hook('{hook_name}') is deprecated. "
+            "Use call_extension_chain() instead.",
+            file=sys.stderr,
+        )
         return ctx
 
     def list_plugins(self) -> list[dict]:

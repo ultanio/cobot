@@ -139,6 +139,7 @@ class TelegramPlugin(Plugin):
             "telegram.on_media",
         ],
         implements={
+            "loop.before_llm": "on_before_llm_call",
             "session.receive": "poll_updates",
             "session.send": "send_message",
             "session.typing": "send_typing",
@@ -155,7 +156,6 @@ class TelegramPlugin(Plugin):
         self._message_queue: list[TelegramMessage] = []  # For session.receive
         self._message_buffer: list[TelegramMessage] = []  # For legacy receive()
         self._last_update_id: int = 0
-        self._registry = None
         self._default_group_id: Optional[int] = None
         self._poll_timeout: int = 30  # Long polling timeout (seconds)
         self._extension_handlers: dict[str, list] = {

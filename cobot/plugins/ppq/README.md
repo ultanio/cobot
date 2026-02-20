@@ -36,7 +36,12 @@ Provides LLM capabilities using PPQ.ai's API. Pay-per-query with Bitcoin Lightni
 ## Extension Points
 
 **Defines:** None  
-**Implements:** None (uses capability interface)
+**Implements:**
+
+| Extension Point | Method | Description |
+|-----------------|--------|-------------|
+| `loop.before_llm` | `on_before_llm_call` | Pre-LLM logging/setup |
+| `loop.after_llm` | `on_after_llm_call` | Post-LLM token tracking |
 
 ## Configuration
 

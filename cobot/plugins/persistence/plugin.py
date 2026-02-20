@@ -22,6 +22,11 @@ class PersistencePlugin(Plugin):
         capabilities=["persistence"],
         dependencies=["config", "workspace"],
         priority=15,
+        implements={
+            "loop.on_message": "on_message_received",
+            "loop.transform_history": "transform_history",
+            "loop.after_send": "on_after_send",
+        },
     )
 
     def __init__(self):

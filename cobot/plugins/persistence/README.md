@@ -87,23 +87,29 @@ The agent automatically:
 2. Appends new messages to history
 3. Saves after each response
 
-## Hooks
+## Extension Points
 
-The persistence plugin uses hooks to automatically manage history:
+**Implements:**
+
+| Extension Point | Method | Description |
+|-----------------|--------|-------------|
+| `loop.on_message` | `on_message_received` | Loads history for the current peer |
+| `loop.transform_history` | `transform_history` | Injects saved history into context |
+| `loop.after_send` | `on_after_send` | Saves the exchange to disk |
 
 ```python
-def on_message_received(self, ctx):
+async def on_message_received(self, ctx: dict) -> dict:
     # Load history for this peer
     peer = ctx.get("sender")
     self.set_peer(peer)
     return ctx
 
-def transform_history(self, ctx):
+async def transform_history(self, ctx: dict) -> dict:
     # Inject saved history
     ctx["messages"] = self.get_history() + ctx["messages"]
     return ctx
 
-def on_after_send(self, ctx):
+async def on_after_send(self, ctx: dict) -> dict:
     # Save the exchange
     self.save()
     return ctx
