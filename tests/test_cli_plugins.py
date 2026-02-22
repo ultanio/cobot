@@ -1,36 +1,24 @@
 """Tests for plugin CLI extension functionality."""
 
-from unittest.mock import Mock, patch
 from click.testing import CliRunner
 
 from cobot.plugins.base import Plugin, PluginMeta
 
 
 class TestRegisterCommands:
-    """Test the register_commands hook."""
+    """Test CLI command registration via extension point."""
 
-    def test_plugin_has_register_commands_method(self):
-        """Test that Plugin base class has register_commands."""
-        assert hasattr(Plugin, "register_commands")
+    def test_register_commands_not_on_base_class(self):
+        """Test that register_commands is NOT on Plugin base class.
 
-    def test_register_commands_default_does_nothing(self):
-        """Test that default register_commands is a no-op."""
-
-        class TestPlugin(Plugin):
-            meta = PluginMeta(id="test", version="1.0.0")
-
-            def configure(self, config):
-                pass
-
-            def start(self):
-                pass
-
-            def stop(self):
-                pass
-
-        plugin = TestPlugin()
-        # Should not raise
-        plugin.register_commands(Mock())
+        As of the cli.commands extension point refactoring, plugins
+        must explicitly declare implements={"cli.commands": "register_commands"}
+        rather than inheriting from the base class.
+        """
+        # register_commands should NOT be on base Plugin
+        assert not hasattr(Plugin, "register_commands") or Plugin.__dict__.get(
+            "register_commands"
+        ) is None
 
     def test_plugin_can_add_command(self):
         """Test that a plugin can add a CLI command."""
@@ -432,38 +420,36 @@ class TestRegisterPluginCommands:
         # Should not raise even if plugins aren't available
         register_plugin_commands()
 
-    @patch("cobot.plugins.discover_plugins")
-    def test_calls_register_commands_on_plugins(self, mock_discover):
-        """Test that register_commands is called on each plugin."""
-        from cobot.cli import register_plugin_commands, cli
+    def test_cli_commands_extension_point_exists(self):
+        """Test that cli plugin defines cli.commands extension point."""
+        from cobot.plugins.cli.plugin import CLIPlugin
 
-        mock_plugin_class = Mock()
-        mock_plugin_instance = Mock()
-        mock_plugin_class.return_value = mock_plugin_instance
-        mock_discover.return_value = [mock_plugin_class]
+        assert "cli.commands" in CLIPlugin.meta.extension_points
 
-        register_plugin_commands()
+    def test_memory_plugin_implements_cli_commands(self):
+        """Test that memory plugin declares cli.commands implementation."""
+        from cobot.plugins.memory.plugin import MemoryPlugin
 
-        mock_plugin_instance.register_commands.assert_called_once_with(cli)
+        assert "cli.commands" in MemoryPlugin.meta.implements
+        assert MemoryPlugin.meta.implements["cli.commands"] == "register_commands"
 
-    @patch("cobot.plugins.discover_plugins")
-    def test_continues_on_plugin_error(self, mock_discover):
-        """Test that one plugin error doesn't stop others."""
-        from cobot.cli import register_plugin_commands
+    def test_pairing_plugin_implements_cli_commands(self):
+        """Test that pairing plugin declares cli.commands implementation."""
+        from cobot.plugins.pairing.plugin import PairingPlugin
 
-        bad_plugin_class = Mock()
-        bad_plugin_instance = Mock()
-        bad_plugin_instance.register_commands.side_effect = Exception("Plugin error")
-        bad_plugin_class.return_value = bad_plugin_instance
+        assert "cli.commands" in PairingPlugin.meta.implements
+        assert PairingPlugin.meta.implements["cli.commands"] == "register_commands"
 
-        good_plugin_class = Mock()
-        good_plugin_instance = Mock()
-        good_plugin_class.return_value = good_plugin_instance
+    def test_cron_plugin_implements_cli_commands(self):
+        """Test that cron plugin declares cli.commands implementation."""
+        from cobot.plugins.cron.plugin import CronPlugin
 
-        mock_discover.return_value = [bad_plugin_class, good_plugin_class]
+        assert "cli.commands" in CronPlugin.meta.implements
+        assert CronPlugin.meta.implements["cli.commands"] == "register_commands"
 
-        register_plugin_commands()
+    def test_subagent_plugin_implements_cli_commands(self):
+        """Test that subagent plugin declares cli.commands implementation."""
+        from cobot.plugins.subagent.plugin import SubagentPlugin
 
-        # Both should be called (error in one doesn't stop others)
-        bad_plugin_instance.register_commands.assert_called_once()
-        good_plugin_instance.register_commands.assert_called_once()
+        assert "cli.commands" in SubagentPlugin.meta.implements
+        assert SubagentPlugin.meta.implements["cli.commands"] == "register_commands"

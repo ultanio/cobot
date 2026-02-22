@@ -114,6 +114,7 @@ class SubagentPlugin(Plugin, SubagentProvider, ToolProvider):
             "subagent.before_spawn",  # Modify task/context before spawn
             "subagent.after_spawn",  # Process result after spawn
         ],
+        implements={"cli.commands": "register_commands"},
     )
 
     def __init__(self):

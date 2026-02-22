@@ -122,6 +122,7 @@ class CronPlugin(Plugin, ToolProvider):
         ],
         implements={
             "session.poll_messages": "poll_main_session_jobs",
+            "cli.commands": "register_commands",
         },
     )
 

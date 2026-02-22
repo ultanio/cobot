@@ -28,6 +28,7 @@ class MemoryPlugin(Plugin):
             "memory.retrieve",  # Retrieve by key: retrieve(key) -> str
             "memory.search",  # Search memories: search(query) -> list[dict]
         ],
+        implements={"cli.commands": "register_commands"},
         priority=12,
     )
 

@@ -631,13 +631,13 @@ def run_tests(verbose: bool):
 
 
 def register_plugin_commands():
-    """Load plugins and let them register CLI commands.
+    """Load plugins and let them register CLI commands via extension point.
 
-    This does a lightweight load - discovers plugins and instantiates them
-    for CLI command registration, but doesn't fully start them.
+    Uses the cli.commands extension point - plugins that want to contribute
+    CLI commands declare implements={"cli.commands": "register_commands"}.
     """
     try:
-        from cobot.plugins import discover_plugins
+        from cobot.plugins import discover_plugins, PluginRegistry
 
         # Try to find plugins directory
         plugins_dir = None
@@ -656,11 +656,25 @@ def register_plugin_commands():
         # Discover plugin classes (don't start them)
         plugin_classes = discover_plugins(plugins_dir)
 
-        # Create instances and register CLI commands
+        # Create a lightweight registry for CLI command registration
+        registry = PluginRegistry()
+        instances = []
         for plugin_class in plugin_classes:
             try:
                 instance = plugin_class()
-                instance.register_commands(cli)
+                instance._registry = registry
+                registry.register(instance)
+                instances.append(instance)
+            except Exception:
+                pass
+
+        # Use extension point to register CLI commands
+        for plugin_id, plugin, method_name in registry.get_implementations(
+            "cli.commands"
+        ):
+            try:
+                method = getattr(plugin, method_name)
+                method(cli)
             except Exception:
                 pass  # Ignore failures during CLI discovery
     except Exception:

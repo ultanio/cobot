@@ -202,19 +202,6 @@ class Plugin(ABC):
     def log_error(self, msg: str, **extra):
         self.log("error", msg, **extra)
 
-    # --- CLI Extension ---
-
-    def register_commands(self, cli) -> None:
-        """Register CLI commands.
-
-        Called during CLI initialization. Plugins can add commands/groups
-        to the main CLI.
-
-        Args:
-            cli: Click group (the main cobot CLI)
-        """
-        pass
-
     # --- Setup Wizard Extension ---
 
     def wizard_section(self) -> dict | None:

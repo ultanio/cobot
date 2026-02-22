@@ -28,6 +28,7 @@ class PairingPlugin(Plugin):
         version="1.0.0",
         capabilities=["pairing"],
         dependencies=["config"],
+        implements={"cli.commands": "register_commands"},
         priority=5,  # Very early - check auth before anything else
     )
 
