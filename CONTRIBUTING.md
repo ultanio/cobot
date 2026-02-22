@@ -43,6 +43,8 @@ The best way to extend Cobot is via plugins. See [Plugin Development](#plugin-de
 
 ## Plugin Development
 
+> **📐 For design principles, patterns catalog, and anti-patterns, see the [Plugin Design Guide](docs/plugin-design-guide.md).**
+
 Plugins are the preferred way to add functionality. Don't modify core unless necessary.
 
 ### Creating a Plugin

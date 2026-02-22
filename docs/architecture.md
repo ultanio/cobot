@@ -35,6 +35,8 @@ graph TB
 
 ## Plugin Registry
 
+> **📐 For design principles, patterns, and the full PluginMeta vocabulary, see the [Plugin Design Guide](./plugin-design-guide.md).**
+
 The registry is the heart of Cobot's plugin system.
 
 ```mermaid
@@ -64,6 +66,8 @@ classDiagram
         +version: str
         +capabilities: list
         +dependencies: list
+        +optional_dependencies: list
+        +consumes: list
         +priority: int
         +extension_points: list
         +implements: dict

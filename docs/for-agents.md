@@ -35,6 +35,8 @@ NOSTR_NSEC         # Nostr private key (bech32)
 
 ## Plugin Development (Agent-Friendly)
 
+> **📐 For the full design guide (principles, patterns, anti-patterns, reviewer checklist), see [Plugin Design Guide](./plugin-design-guide.md).**
+
 ### Minimal Plugin Template
 
 ```python
