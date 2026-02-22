@@ -3,13 +3,15 @@
 Priority: 16 (after persistence)
 """
 
+import asyncio
+
 from ..base import Plugin, PluginMeta
 
 
-# Token budget configuration
-MAX_TOKENS = 12000
-TARGET_RECENT_TOKENS = 4000
-CHARS_PER_TOKEN = 4
+# Token budget defaults
+DEFAULT_MAX_TOKENS = 12000
+DEFAULT_TARGET_RECENT_TOKENS = 4000
+DEFAULT_CHARS_PER_TOKEN = 4
 
 
 class CompactionPlugin(Plugin):
@@ -28,10 +30,19 @@ class CompactionPlugin(Plugin):
     )
 
     def __init__(self):
-        pass
+        self._max_tokens = DEFAULT_MAX_TOKENS
+        self._target_recent_tokens = DEFAULT_TARGET_RECENT_TOKENS
+        self._chars_per_token = DEFAULT_CHARS_PER_TOKEN
 
     def configure(self, config: dict) -> None:
-        pass
+        compaction_cfg = config.get("compaction", {})
+        self._max_tokens = compaction_cfg.get("max_tokens", DEFAULT_MAX_TOKENS)
+        self._target_recent_tokens = compaction_cfg.get(
+            "target_recent_tokens", DEFAULT_TARGET_RECENT_TOKENS
+        )
+        self._chars_per_token = compaction_cfg.get(
+            "chars_per_token", DEFAULT_CHARS_PER_TOKEN
+        )
 
     async def start(self) -> None:
         self.log_info("Ready")
@@ -41,7 +52,7 @@ class CompactionPlugin(Plugin):
 
     def _estimate_tokens(self, messages: list[dict]) -> int:
         total = sum(len(m.get("content", "")) for m in messages)
-        return total // CHARS_PER_TOKEN
+        return total // self._chars_per_token
 
     def _get_llm(self):
         """Get LLM from registry."""
@@ -49,7 +60,7 @@ class CompactionPlugin(Plugin):
             return self._registry.get_by_capability("llm")
         return None
 
-    def _summarize(self, messages: list[dict]) -> str:
+    async def _summarize(self, messages: list[dict]) -> str:
         """Summarize messages using LLM."""
         if not messages:
             return ""
@@ -67,7 +78,10 @@ class CompactionPlugin(Plugin):
             return f"[Earlier conversation - {len(messages)} messages]"
 
         try:
-            response = llm.chat(
+            # Use asyncio.to_thread if chat() is synchronous,
+            # or await directly if it's async
+            chat_fn = llm.chat
+            response = chat_fn(
                 messages=[
                     {
                         "role": "system",
@@ -77,6 +91,9 @@ class CompactionPlugin(Plugin):
                 ],
                 max_tokens=200,
             )
+            # Handle both sync and async return values
+            if asyncio.iscoroutine(response):
+                response = await response
             return response.content
         except Exception as e:
             self.log_error(f"Summarization failed: {e}")
@@ -106,7 +123,7 @@ class CompactionPlugin(Plugin):
 
         total_tokens = self._estimate_tokens(history)
 
-        if total_tokens <= MAX_TOKENS:
+        if total_tokens <= self._max_tokens:
             return ctx
 
         self.log_info(f"{total_tokens} tokens, compacting...")
@@ -116,8 +133,8 @@ class CompactionPlugin(Plugin):
         split_index = len(history)
 
         for i in range(len(history) - 1, -1, -1):
-            msg_tokens = len(history[i].get("content", "")) // CHARS_PER_TOKEN
-            if recent_tokens + msg_tokens > TARGET_RECENT_TOKENS:
+            msg_tokens = len(history[i].get("content", "")) // self._chars_per_token
+            if recent_tokens + msg_tokens > self._target_recent_tokens:
                 split_index = i + 1
                 break
             recent_tokens += msg_tokens
@@ -128,7 +145,7 @@ class CompactionPlugin(Plugin):
         old_messages = history[:split_index]
         recent_messages = history[split_index:]
 
-        summary = self._summarize(old_messages)
+        summary = await self._summarize(old_messages)
 
         new_messages = []
         if system_msg:
