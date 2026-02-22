@@ -113,7 +113,7 @@ class TestPluginConfiguration:
             plugin.configure({})
         assert plugin._bot_token is None
         captured = capsys.readouterr()
-        assert "Warning" in captured.err
+        assert "No bot_token configured" in captured.err
 
     def test_configure_multiple_groups(self):
         """Test configuration with multiple groups."""

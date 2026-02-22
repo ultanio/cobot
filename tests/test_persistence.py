@@ -1,7 +1,6 @@
 """Tests for persistence plugin - conversation history management."""
 
 import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
 import tempfile
 import json

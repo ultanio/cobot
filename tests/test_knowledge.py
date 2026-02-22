@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from cobot.plugins.knowledge.db import KnowledgeDB, KnowledgeEntry
+from cobot.plugins.knowledge.db import KnowledgeDB
 from cobot.plugins.knowledge.search import KnowledgeSearch, cosine_similarity
 
 

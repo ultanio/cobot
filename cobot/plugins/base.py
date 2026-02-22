@@ -28,6 +28,12 @@ class PluginMeta:
     dependencies: list[str] = field(
         default_factory=list
     )  # Required plugins: ["config"]
+    optional_dependencies: list[str] = field(
+        default_factory=list
+    )  # Soft dependencies: use if loaded, skip if not
+    consumes: list[str] = field(
+        default_factory=list
+    )  # Capability groups to aggregate from: ["storage"]
     priority: int = 50  # Load order (lower = earlier)
     extension_points: list[str] = field(
         default_factory=list

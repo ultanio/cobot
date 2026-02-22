@@ -8,7 +8,7 @@ import asyncio
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, AsyncMock
 
 import pytest
 
@@ -561,7 +561,7 @@ class TestLoopExtensionAborts:
 
         loop.call_extension_chain = AsyncMock(side_effect=block_tool)
 
-        response = asyncio.run(loop._respond("Do dangerous thing"))
+        asyncio.run(loop._respond("Do dangerous thing"))
 
         # Tool should NOT be executed
         tools_plugin.execute.assert_not_called()

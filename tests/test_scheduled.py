@@ -1,13 +1,11 @@
 """Tests for scheduled execution plugins (subagent, cron, heartbeat)."""
 
-import asyncio
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from cobot.plugins.subagent.plugin import SubagentPlugin
 from cobot.plugins.cron.plugin import CronPlugin, CronJob
 from cobot.plugins.heartbeat.plugin import HeartbeatPlugin
-from cobot.plugins.subagent import SubagentResult
 from cobot.plugins.interfaces import LLMResponse
 
 
