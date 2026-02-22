@@ -4,10 +4,35 @@ Priority: 5 (very early, logs everything)
 """
 
 import json
+import os
 import sys
-from datetime import datetime, timezone
 
 from ..base import Plugin, PluginMeta
+
+# Column width for source names (aligns log output)
+SOURCE_WIDTH = 12
+
+
+# ANSI color codes
+class Colors:
+    """ANSI escape codes for colored terminal output."""
+
+    RESET = "\033[0m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    GRAY = "\033[90m"
+
+    @classmethod
+    def supports_color(cls) -> bool:
+        """Check if the terminal supports colors."""
+        # Respect NO_COLOR env var (https://no-color.org/)
+        if os.environ.get("NO_COLOR"):
+            return False
+        # Check if stderr is a TTY
+        if not hasattr(sys.stderr, "isatty"):
+            return False
+        return sys.stderr.isatty()
 
 
 class LoggerPlugin(Plugin):
@@ -33,10 +58,14 @@ class LoggerPlugin(Plugin):
     def __init__(self):
         self._level: str = "info"
         self._levels = {"debug": 0, "info": 1, "warn": 2, "error": 3}
+        self._colors_enabled: bool = Colors.supports_color()
 
     def configure(self, config: dict) -> None:
         logger_config = config.get("logger", {})
         self._level = logger_config.get("level", "info")
+        # Allow explicit color override in config
+        if "color" in logger_config:
+            self._colors_enabled = logger_config["color"]
 
     async def start(self) -> None:
         pass
@@ -47,24 +76,36 @@ class LoggerPlugin(Plugin):
     def _should_log(self, level: str) -> bool:
         return self._levels.get(level, 1) >= self._levels.get(self._level, 1)
 
-    def _log(self, level: str, hook: str, msg: str, **extra):
+    def _colorize(self, level: str, text: str) -> str:
+        """Apply color to log level indicator."""
+        if not self._colors_enabled:
+            return text
+
+        level_colors = {
+            "I": Colors.GREEN,
+            "W": Colors.YELLOW,
+            "E": Colors.RED,
+            "D": Colors.GRAY,
+        }
+        color = level_colors.get(level, "")
+        if color:
+            return f"{color}{text}{Colors.RESET}"
+        return text
+
+    def _log(self, level: str, source: str, msg: str, **extra):
         if not self._should_log(level):
             return
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        parts = [f"[{ts}]", f"[{level[0].upper()}]", f"[{hook}]", msg]
+        level_char = level[0].upper()
+        level_str = self._colorize(level_char, f"[{level_char}]")
+        source_padded = source.ljust(SOURCE_WIDTH)[:SOURCE_WIDTH]
+        parts = [level_str, f"[{source_padded}]", msg]
         if extra:
             parts.append(json.dumps(extra, default=str))
         print(" ".join(parts), file=sys.stderr, flush=True)
 
     def log(self, level: str, source: str, msg: str, **extra):
         """Central logging method called by other plugins."""
-        if not self._should_log(level):
-            return
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        parts = [f"[{ts}]", f"[{level[0].upper()}]", f"[{source}]", msg]
-        if extra:
-            parts.append(json.dumps(extra, default=str))
-        print(" ".join(parts), file=sys.stderr, flush=True)
+        self._log(level, source, msg, **extra)
 
     # --- Extension Point Implementations ---
 

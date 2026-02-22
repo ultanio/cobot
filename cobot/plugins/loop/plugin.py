@@ -12,6 +12,7 @@ Capability: loop
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -20,14 +21,34 @@ from ..base import Plugin, PluginMeta
 from ..interfaces import LLMProvider, LLMError, ToolProvider
 
 
+_LOG_SOURCE_WIDTH = 12
+
+
+def _log_fallback(level: str, msg: str) -> None:
+    """Log with consistent format (fallback when plugin context unavailable)."""
+    level_char = level[0].upper()
+    use_color = (
+        not os.environ.get("NO_COLOR")
+        and hasattr(sys.stderr, "isatty")
+        and sys.stderr.isatty()
+    )
+    if use_color:
+        colors = {"I": "\033[32m", "W": "\033[33m", "E": "\033[31m"}
+        reset = "\033[0m"
+        color = colors.get(level_char, "")
+        level_str = f"{color}[{level_char}]{reset}" if color else f"[{level_char}]"
+    else:
+        level_str = f"[{level_char}]"
+    source = "loop".ljust(_LOG_SOURCE_WIDTH)
+    print(f"{level_str} [{source}] {msg}", file=sys.stderr)
+
+
 class AggregatedToolProvider(ToolProvider):
     """Aggregates tools from multiple ToolProvider plugins."""
 
     def __init__(self, providers: list, log_error=None):
         self._providers = providers
-        self._log_error = log_error or (
-            lambda msg: print(f"[Loop] {msg}", file=sys.stderr)
-        )
+        self._log_error = log_error or (lambda msg: _log_fallback("error", msg))
         self._tool_map: dict[str, ToolProvider] = {}  # tool_name -> provider
         self._build_tool_map()
 

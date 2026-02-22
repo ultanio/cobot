@@ -180,6 +180,34 @@ class Plugin(ABC):
 
     # --- Logging Methods ---
 
+    # Column width for source names (aligns log output)
+    _LOG_SOURCE_WIDTH = 12
+
+    def _log_fallback(self, level: str, msg: str) -> None:
+        """Log with consistent format when logger plugin unavailable."""
+        import os
+
+        level_char = level[0].upper()
+        use_color = (
+            not os.environ.get("NO_COLOR")
+            and hasattr(sys.stderr, "isatty")
+            and sys.stderr.isatty()
+        )
+        if use_color:
+            colors = {
+                "I": "\033[32m",
+                "W": "\033[33m",
+                "E": "\033[31m",
+                "D": "\033[90m",
+            }
+            reset = "\033[0m"
+            color = colors.get(level_char, "")
+            level_str = f"{color}[{level_char}]{reset}" if color else f"[{level_char}]"
+        else:
+            level_str = f"[{level_char}]"
+        source = self.meta.id.ljust(self._LOG_SOURCE_WIDTH)[: self._LOG_SOURCE_WIDTH]
+        print(f"{level_str} [{source}] {msg}", file=sys.stderr)
+
     def log(self, level: str, msg: str, **extra):
         """Log via the logger plugin if available."""
         if self._registry:
@@ -187,8 +215,8 @@ class Plugin(ABC):
             if logger and hasattr(logger, "log"):
                 logger.log(level, self.meta.id, msg, **extra)
                 return
-        # Fallback if no logger plugin
-        print(f"[{self.meta.id}] {msg}", file=sys.stderr)
+        # Fallback if no logger plugin - use consistent format
+        self._log_fallback(level, msg)
 
     def log_debug(self, msg: str, **extra):
         self.log("debug", msg, **extra)

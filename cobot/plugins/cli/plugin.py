@@ -26,3 +26,8 @@ class CLIPlugin(Plugin):
 
     async def stop(self) -> None:
         pass
+
+
+def create_plugin() -> CLIPlugin:
+    """Factory function for plugin instantiation."""
+    return CLIPlugin()

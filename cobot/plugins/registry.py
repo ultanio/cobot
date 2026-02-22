@@ -11,11 +11,34 @@ The registry handles:
 NOTE: As of v0.2.0, lifecycle methods (start, stop) and hooks are async.
 """
 
+import os
 import sys
 from typing import Optional, Type
 from collections import defaultdict
 
 from .base import Plugin, PluginMeta
+
+
+_LOG_SOURCE_WIDTH = 12
+
+
+def _log(level: str, msg: str) -> None:
+    """Log with consistent format (before logger plugin available)."""
+    level_char = level[0].upper()
+    use_color = (
+        not os.environ.get("NO_COLOR")
+        and hasattr(sys.stderr, "isatty")
+        and sys.stderr.isatty()
+    )
+    if use_color:
+        colors = {"I": "\033[32m", "W": "\033[33m", "E": "\033[31m"}
+        reset = "\033[0m"
+        color = colors.get(level_char, "")
+        level_str = f"{color}[{level_char}]{reset}" if color else f"[{level_char}]"
+    else:
+        level_str = f"[{level_char}]"
+    source = "registry".ljust(_LOG_SOURCE_WIDTH)
+    print(f"{level_str} [{source}] {msg}", file=sys.stderr)
 
 
 class PluginError(Exception):
@@ -194,10 +217,7 @@ class PluginRegistry:
             try:
                 plugin.configure(plugin_config)
             except Exception as e:
-                print(
-                    f"[Registry] Failed to configure '{plugin_id}': {e}",
-                    file=sys.stderr,
-                )
+                _log("error", f"Failed to configure '{plugin_id}': {e}")
                 raise PluginError(f"Configuration failed for '{plugin_id}': {e}")
 
     async def start_all(self) -> None:
@@ -219,7 +239,7 @@ class PluginRegistry:
             try:
                 await plugin.start()
             except Exception as e:
-                print(f"[Registry] Failed to start '{plugin_id}': {e}", file=sys.stderr)
+                _log("error", f"Failed to start '{plugin_id}': {e}")
                 raise PluginError(f"Start failed for '{plugin_id}': {e}")
 
         self._started = True
@@ -235,7 +255,7 @@ class PluginRegistry:
             try:
                 await plugin.stop()
             except Exception as e:
-                print(f"[Registry] Error stopping '{plugin_id}': {e}", file=sys.stderr)
+                _log("error", f"Error stopping '{plugin_id}': {e}")
 
         self._started = False
 
@@ -254,10 +274,8 @@ class PluginRegistry:
 
         Kept for backwards compatibility during migration.
         """
-        print(
-            f"[Registry] Warning: run_hook('{hook_name}') is deprecated. "
-            "Use call_extension_chain() instead.",
-            file=sys.stderr,
+        _log(
+            "warn", f"run_hook('{hook_name}') is deprecated, use call_extension_chain()"
         )
         return ctx
 

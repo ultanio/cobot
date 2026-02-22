@@ -10,6 +10,7 @@ must contain a plugin.py with a create_plugin() factory function.
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -33,6 +34,32 @@ from .registry import (
     reset_registry,
     reset_registry_async,
 )
+
+
+def _supports_color() -> bool:
+    """Check if terminal supports colors."""
+    if os.environ.get("NO_COLOR"):
+        return False
+    if not hasattr(sys.stderr, "isatty"):
+        return False
+    return sys.stderr.isatty()
+
+
+_LOG_SOURCE_WIDTH = 12
+
+
+def _early_log(level: str, source: str, msg: str) -> None:
+    """Log before logger plugin is available. Matches logger format."""
+    level_char = level[0].upper()
+    if _supports_color():
+        colors = {"I": "\033[32m", "W": "\033[33m", "E": "\033[31m"}
+        reset = "\033[0m"
+        color = colors.get(level_char, "")
+        level_str = f"{color}[{level_char}]{reset}" if color else f"[{level_char}]"
+    else:
+        level_str = f"[{level_char}]"
+    source_padded = source.ljust(_LOG_SOURCE_WIDTH)[:_LOG_SOURCE_WIDTH]
+    print(f"{level_str} [{source_padded}] {msg}", file=sys.stderr)
 
 
 def discover_plugins(plugins_dir: Path) -> list[type[Plugin]]:
@@ -75,9 +102,8 @@ def discover_plugins(plugins_dir: Path) -> list[type[Plugin]]:
             # Get the plugin class via factory
             create_plugin = getattr(module, "create_plugin", None)
             if create_plugin is None:
-                print(
-                    f"[Plugins] Warning: {path.name}/plugin.py has no create_plugin()",
-                    file=sys.stderr,
+                _early_log(
+                    "warn", "plugins", f"{path.name}/plugin.py has no create_plugin()"
                 )
                 continue
 
@@ -86,7 +112,10 @@ def discover_plugins(plugins_dir: Path) -> list[type[Plugin]]:
             plugin_classes.append(type(instance))
 
         except Exception as e:
-            print(f"[Plugins] Failed to load {path.name}: {e}", file=sys.stderr)
+            import traceback
+
+            _early_log("error", "plugins", f"Failed to load {path.name}: {e}")
+            traceback.print_exc()
 
     return plugin_classes
 
@@ -121,17 +150,14 @@ def load_external_plugins(packages: list[str]) -> list[type]:
             if create_plugin:
                 instance = create_plugin()
                 plugin_classes.append(type(instance))
-                print(f"[Plugins] Loaded external: {package_name}", file=sys.stderr)
+                _early_log("info", "plugins", f"Loaded external: {package_name}")
             else:
-                print(
-                    f"[Plugins] Warning: {package_name} has no create_plugin()",
-                    file=sys.stderr,
-                )
+                _early_log("warn", "plugins", f"{package_name} has no create_plugin()")
 
         except ImportError as e:
-            print(f"[Plugins] Failed to load {package_name}: {e}", file=sys.stderr)
+            _early_log("error", "plugins", f"Failed to load {package_name}: {e}")
         except Exception as e:
-            print(f"[Plugins] Error loading {package_name}: {e}", file=sys.stderr)
+            _early_log("error", "plugins", f"Error loading {package_name}: {e}")
 
     return plugin_classes
 
@@ -180,15 +206,16 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
 
         # Skip if explicitly disabled
         if plugin_id in disabled_list:
-            print(f"[Plugins] Skipping disabled plugin: {plugin_id}", file=sys.stderr)
+            _early_log("info", "plugins", f"Skipping disabled: {plugin_id}")
             continue
 
         # Handle LLM provider selection - only load the configured one
         if "llm" in plugin_class.meta.capabilities:
             if plugin_id != provider:
-                print(
-                    f"[Plugins] Skipping LLM provider: {plugin_id} (using {provider})",
-                    file=sys.stderr,
+                _early_log(
+                    "info",
+                    "plugins",
+                    f"Skipping LLM provider: {plugin_id} (using {provider})",
                 )
                 continue
 
@@ -197,16 +224,13 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
             # But always load core plugins
             core_plugins = ["config", "logger", provider]
             if plugin_id not in core_plugins:
-                print(
-                    f"[Plugins] Skipping non-enabled plugin: {plugin_id}",
-                    file=sys.stderr,
-                )
+                _early_log("info", "plugins", f"Skipping non-enabled: {plugin_id}")
                 continue
 
         try:
             registry.register(plugin_class)
         except PluginError as e:
-            print(f"[Plugins] Failed to register: {e}", file=sys.stderr)
+            _early_log("error", "plugins", f"Failed to register: {e}")
 
     # Configure all plugins (sync - just config assignment)
     registry.configure_all(config)

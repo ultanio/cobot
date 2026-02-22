@@ -5,10 +5,33 @@ This module is optional - knowledge plugin works without embeddings.
 """
 
 import json
+import os
 import sys
 from typing import Optional
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+
+
+_LOG_SOURCE_WIDTH = 12
+
+
+def _log(level: str, msg: str) -> None:
+    """Log with consistent format."""
+    level_char = level[0].upper()
+    use_color = (
+        not os.environ.get("NO_COLOR")
+        and hasattr(sys.stderr, "isatty")
+        and sys.stderr.isatty()
+    )
+    if use_color:
+        colors = {"I": "\033[32m", "W": "\033[33m", "E": "\033[31m"}
+        reset = "\033[0m"
+        color = colors.get(level_char, "")
+        level_str = f"{color}[{level_char}]{reset}" if color else f"[{level_char}]"
+    else:
+        level_str = f"[{level_char}]"
+    source = "knowledge".ljust(_LOG_SOURCE_WIDTH)
+    print(f"{level_str} [{source}] {msg}", file=sys.stderr)
 
 
 class OllamaEmbeddings:
@@ -39,18 +62,18 @@ class OllamaEmbeddings:
                 ]
                 self._available = self.model in models
                 if not self._available:
-                    print(
-                        f"[Knowledge] Ollama running but model '{self.model}' not found. "
+                    _log(
+                        "warn",
+                        f"Ollama running but model '{self.model}' not found. "
                         f"Available: {models}. Run: ollama pull {self.model}",
-                        file=sys.stderr,
                     )
                 return self._available
         except URLError as e:
-            print(f"[Knowledge] Ollama not available: {e}", file=sys.stderr)
+            _log("warn", f"Ollama not available: {e}")
             self._available = False
             return False
         except Exception as e:
-            print(f"[Knowledge] Ollama check error: {e}", file=sys.stderr)
+            _log("error", f"Ollama check error: {e}")
             self._available = False
             return False
 
@@ -70,7 +93,7 @@ class OllamaEmbeddings:
                 data = json.loads(resp.read())
                 return data.get("embedding")
         except Exception as e:
-            print(f"[Knowledge] Embedding error: {e}", file=sys.stderr)
+            _log("error", f"Embedding error: {e}")
             return None
 
     def embed_batch(

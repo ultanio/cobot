@@ -1,25 +1,8 @@
-"""Tests for Nostr communication plugin.
-
-Note: These tests require pynostr to be installed.
-Some tests are skipped if pynostr is not available.
-"""
+"""Tests for Nostr communication plugin."""
 
 import asyncio
 
 import pytest
-
-# Check if pynostr is available
-try:
-    from pynostr.key import PrivateKey
-
-    PYNOSTR_AVAILABLE = True
-except ImportError:
-    PYNOSTR_AVAILABLE = False
-
-pytestmark = pytest.mark.skipif(
-    not PYNOSTR_AVAILABLE, reason="pynostr not installed"
-)
-
 
 from ..plugin import NostrPlugin, create_plugin
 from ...interfaces import Message, CommunicationError

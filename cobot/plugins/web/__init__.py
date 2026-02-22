@@ -1,5 +1,4 @@
 """Web admin plugin."""
 
-from .plugin import WebPlugin, create_plugin
-
-__all__ = ["WebPlugin", "create_plugin"]
+# Don't import from plugin.py here - causes circular import
+# Plugin loader uses create_plugin() directly from plugin.py
