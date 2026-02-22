@@ -318,10 +318,14 @@ class TelegramPlugin(Plugin):
                 is_edit = "edited_message" in update
                 chat_id = msg["chat"]["id"]
 
-                # Auto-add unknown groups
+                # Security: Only process messages from configured groups
                 if chat_id not in self._groups:
                     chat_name = msg["chat"].get("title", str(chat_id))
-                    self._groups[chat_id] = GroupConfig(id=chat_id, name=chat_name)
+                    self.log_warn(
+                        f"Ignoring message from unconfigured group {chat_id} ({chat_name}): "
+                        f"add group to config to enable processing"
+                    )
+                    continue
 
                 group = self._groups[chat_id]
                 if not group.enabled:

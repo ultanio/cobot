@@ -652,7 +652,10 @@ class TestSessionReceive:
         from cobot.plugins.session import IncomingMessage
 
         plugin = TelegramPlugin()
-        plugin.configure({"bot_token": "test"})
+        plugin.configure({
+            "bot_token": "test",
+            "groups": [{"id": "-100123", "name": "Test Group"}],
+        })
         asyncio.run(plugin.start())
 
         # Mock httpx response

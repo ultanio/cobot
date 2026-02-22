@@ -11,9 +11,12 @@ Capability: loop
 """
 
 import asyncio
+import uuid
 import json
 import os
 import sys
+import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -140,7 +143,11 @@ class LoopPlugin(Plugin):
         self._config = None
         self._soul: str = "You are Cobot, a helpful AI assistant."
         self._interval: int = 30
-        self._processed_events: set[str] = set()
+        # Security: TTL-based deduplication (CB-014 fix)
+        # OrderedDict for deterministic trimming + TTL for automatic expiry
+        self._processed_events: OrderedDict[str, float] = OrderedDict()
+        self._dedup_ttl_seconds: int = 3600  # 1 hour TTL
+        self._dedup_max_size: int = 1000
         self._max_tool_rounds: int = 10
 
     def configure(self, config: dict) -> None:
@@ -214,13 +221,33 @@ class LoopPlugin(Plugin):
 
     async def _handle_message(self, msg) -> None:
         """Handle a single incoming message."""
-        # Deduplicate
+        # Security: TTL-based deduplication (CB-014 fix)
         msg_key = f"{msg.channel_type}:{msg.channel_id}:{msg.id}"
+        now = time.time()
+
+        # Check if already processed (and not expired)
         if msg_key in self._processed_events:
-            return
-        self._processed_events.add(msg_key)
-        if len(self._processed_events) > 1000:
-            self._processed_events = set(list(self._processed_events)[500:])
+            if now - self._processed_events[msg_key] < self._dedup_ttl_seconds:
+                return
+
+        # Add/update event timestamp
+        self._processed_events[msg_key] = now
+
+        # Clean up expired entries (deterministic - oldest first)
+        if len(self._processed_events) > self._dedup_max_size:
+            # Remove oldest entries (first in OrderedDict)
+            while len(self._processed_events) > self._dedup_max_size // 2:
+                self._processed_events.popitem(last=False)
+
+        # Also remove expired entries periodically
+        if len(self._processed_events) % 100 == 0:
+            expired = [
+                k
+                for k, v in self._processed_events.items()
+                if now - v > self._dedup_ttl_seconds
+            ]
+            for k in expired:
+                del self._processed_events[k]
 
         # Extension: on_message
         ctx = await self.call_extension_chain(
@@ -410,10 +437,14 @@ class LoopPlugin(Plugin):
             return final_text
 
         except LLMError as e:
+            # Security: Log detailed error internally, return generic message (CB-015 fix)
+            error_id = str(uuid.uuid4())[:8]
             await self.call_extension_chain(
-                "loop.on_error", {"error": e, "hook": "llm_call"}
+                "loop.on_error",
+                {"error": str(e), "hook": "llm_call", "error_id": error_id},
             )
-            return f"Error: {e}"
+            self.log_error(f"LLM Error [{error_id}]: {e}")
+            return f"An error occurred while processing your request. Reference: {error_id}"
 
     async def _do_restart(self):
         """Restart the agent process."""

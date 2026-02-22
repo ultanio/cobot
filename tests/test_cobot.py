@@ -162,7 +162,7 @@ class TestLoopPlugin:
         assert "No LLM" in response
 
     def test_respond_llm_error(self, mock_registry):
-        """Should return error message on LLM failure."""
+        """Should return generic error message on LLM failure (CB-015)."""
         llm_plugin = mock_registry.get_by_capability("llm")
         llm_plugin.chat.side_effect = LLMError("API failed")
 
@@ -170,8 +170,9 @@ class TestLoopPlugin:
         asyncio.run(loop.start())
         response = asyncio.run(loop._respond("Hi"))
 
-        assert "Error" in response
-        assert "API failed" in response
+        # CB-015: Generic error message returned, details logged internally
+        assert "error" in response.lower()
+        assert "Reference:" in response  # Should contain error reference
 
 
 class TestCommunicationIntegration:
@@ -616,13 +617,15 @@ class TestLoopDedupTrimming:
     """Test dedup set management."""
 
     def test_dedup_trims_at_threshold(self, mock_registry):
-        """Should trim processed events set when it exceeds 1000."""
+        """Should trim processed events OrderedDict when it exceeds 1000 (CB-014)."""
+        from collections import OrderedDict
         loop = _make_loop(mock_registry)
         asyncio.run(loop.start())
 
-        # Pre-fill with 1001 events
+        # Pre-fill with 1001 events (CB-014 uses OrderedDict instead of set)
+        loop._processed_events = OrderedDict()
         for i in range(1001):
-            loop._processed_events.add(f"telegram:-100:msg{i}")
+            loop._processed_events[f"telegram:-100:msg{i}"] = 1234567890.0
 
         assert len(loop._processed_events) == 1001
 
