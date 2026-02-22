@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - Cobot Admin{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📊 Overview</h1>
+    <p>Cobot system status and plugin overview</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <div class="stat">
+            <div class="stat-value">{{ overview.plugin_count }}</div>
+            <div class="stat-label">Active Plugins</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Loaded Plugins</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Plugin</th>
+                <th>Version</th>
+                <th>Priority</th>
+                <th>Capabilities</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plugin in overview.plugins %}
+            <tr>
+                <td><strong>{{ plugin.id }}</strong></td>
+                <td>{{ plugin.version }}</td>
+                <td>{{ plugin.priority }}</td>
+                <td>
+                    {% for cap in plugin.capabilities %}
+                    <span class="badge capability">{{ cap }}</span>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

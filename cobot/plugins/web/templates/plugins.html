@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Plugin Graph - Cobot Admin{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/graph.css">
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>🔌 Plugin Graph</h1>
+    <p>Visualize plugin dependencies and extension points</p>
+</div>
+
+<div class="card">
+    <div id="graph-container">
+        <svg id="graph" width="100%" height="100%"></svg>
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+    <div class="graph-legend">
+        <div class="legend-item">
+            <span class="legend-line solid"></span>
+            Hard dependency
+        </div>
+        <div class="legend-item">
+            <span class="legend-line dashed"></span>
+            Optional dependency
+        </div>
+        <div class="legend-item">
+            <span class="legend-line dotted"></span>
+            Implements extension point
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const graphData = {{ graph_data | safe }};
+
+    function renderGraph() {
+        const container = document.getElementById('graph-container');
+        const svg = document.getElementById('graph');
+        const tooltip = document.getElementById('tooltip');
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+        const nodes = graphData.nodes;
+        const edges = graphData.edges;
+
+        // Simple force-directed layout (basic implementation)
+        const positions = {};
+        const nodeCount = nodes.length;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) * 0.35;
+
+        // Position nodes in a circle based on priority
+        nodes.sort((a, b) => a.priority - b.priority);
+        nodes.forEach((node, i) => {
+            const angle = (2 * Math.PI * i) / nodeCount - Math.PI / 2;
+            positions[node.id] = {
+                x: centerX + radius * Math.cos(angle),
+                y: centerY + radius * Math.sin(angle),
+            };
+        });
+
+        // Draw edges first (so they appear behind nodes)
+        edges.forEach(edge => {
+            const from = positions[edge.from];
+            const to = positions[edge.to];
+            if (!from || !to) return;
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('class', `edge ${edge.type}`);
+            svg.appendChild(line);
+        });
+
+        // Draw nodes
+        nodes.forEach(node => {
+            const pos = positions[node.id];
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'node');
+            g.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
+
+            // Determine node style
+            let nodeClass = 'default';
+            if (node.capabilities && node.capabilities.length > 0) {
+                nodeClass = 'has-capabilities';
+            } else if (node.extension_points && node.extension_points.length > 0) {
+                nodeClass = 'has-extension-points';
+            }
+
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', '30');
+            circle.setAttribute('class', `node-circle ${nodeClass}`);
+            g.appendChild(circle);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('class', 'node-label');
+            label.textContent = node.id;
+            g.appendChild(label);
+
+            // Tooltip on hover
+            g.addEventListener('mouseenter', (e) => {
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 10) + 'px';
+                tooltip.style.top = (e.clientY + 10) + 'px';
+
+                let html = `<h3>${node.id}</h3>`;
+                html += `<p>Version: ${node.version}</p>`;
+                html += `<p>Priority: ${node.priority}</p>`;
+
+                if (node.capabilities && node.capabilities.length > 0) {
+                    html += '<p>Capabilities:</p>';
+                    node.capabilities.forEach(cap => {
+                        html += `<span class="badge capability">${cap}</span>`;
+                    });
+                }
+
+                if (node.extension_points && node.extension_points.length > 0) {
+                    html += '<p>Extension Points:</p>';
+                    node.extension_points.forEach(ep => {
+                        html += `<span class="badge">${ep}</span>`;
+                    });
+                }
+
+                if (node.implements && node.implements.length > 0) {
+                    html += '<p>Implements:</p>';
+                    node.implements.forEach(impl => {
+                        html += `<span class="badge">${impl}</span>`;
+                    });
+                }
+
+                tooltip.innerHTML = html;
+            });
+
+            g.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+
+            g.addEventListener('mousemove', (e) => {
+                tooltip.style.left = (e.clientX + 10) + 'px';
+                tooltip.style.top = (e.clientY + 10) + 'px';
+            });
+
+            svg.appendChild(g);
+        });
+    }
+
+    // Render on load and resize
+    renderGraph();
+    window.addEventListener('resize', () => {
+        document.getElementById('graph').innerHTML = '';
+        renderGraph();
+    });
+</script>
+{% endblock %}

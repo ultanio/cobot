@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Cobot Admin{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="layout">
+        <nav class="sidebar">
+            <div class="logo">🤖 Cobot</div>
+            {% for panel in panels %}
+            <a href="{{ panel.route }}" class="nav-item {% if active_panel == panel.id %}active{% endif %}">
+                <span class="nav-icon">{{ panel.icon }}</span>
+                {{ panel.title }}
+            </a>
+            {% endfor %}
+        </nav>
+        <main class="main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

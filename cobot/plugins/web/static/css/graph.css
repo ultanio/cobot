@@ -1,0 +1,138 @@
+/* Cobot Admin - Plugin Graph Styles */
+
+#graph-container {
+    width: 100%;
+    height: 600px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    position: relative;
+}
+
+/* Legend */
+.graph-legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.legend-line {
+    width: 30px;
+    height: 2px;
+}
+
+.legend-line.solid {
+    background: #e94560;
+}
+
+.legend-line.dashed {
+    background: repeating-linear-gradient(
+        90deg,
+        #ffd93d,
+        #ffd93d 5px,
+        transparent 5px,
+        transparent 10px
+    );
+}
+
+.legend-line.dotted {
+    background: repeating-linear-gradient(
+        90deg,
+        #4ade80,
+        #4ade80 3px,
+        transparent 3px,
+        transparent 6px
+    );
+}
+
+/* Nodes */
+.node {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.node:hover {
+    transform: scale(1.1);
+}
+
+.node-label {
+    font-size: 12px;
+    fill: var(--text-primary);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.node-circle {
+    stroke: var(--border);
+    stroke-width: 2;
+}
+
+.node-circle.has-capabilities {
+    fill: rgba(74, 222, 128, 0.3);
+}
+
+.node-circle.has-extension-points {
+    fill: rgba(233, 69, 96, 0.3);
+}
+
+.node-circle.default {
+    fill: rgba(79, 70, 229, 0.3);
+}
+
+/* Edges */
+.edge {
+    fill: none;
+    stroke-width: 1.5;
+}
+
+.edge.dependency {
+    stroke: #e94560;
+}
+
+.edge.optional {
+    stroke: #ffd93d;
+    stroke-dasharray: 5, 5;
+}
+
+.edge.implements {
+    stroke: #4ade80;
+    stroke-dasharray: 3, 3;
+}
+
+/* Tooltip */
+.tooltip {
+    position: absolute;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    max-width: 300px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    display: none;
+}
+
+.tooltip h3 {
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+}
+
+.tooltip p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.tooltip .badge {
+    margin-top: 0.5rem;
+}

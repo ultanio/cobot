@@ -29,13 +29,18 @@ telegram = [
 nostr = [
     "pynostr>=0.6",
 ]
+web = [
+    "starlette>=0.35",
+    "uvicorn>=0.25",
+    "jinja2>=3.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.2",
 ]
 all = [
-    "cobot[telegram,nostr,dev]",
+    "cobot[telegram,nostr,web,dev]",
 ]
 
 [project.scripts]
