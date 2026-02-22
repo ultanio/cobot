@@ -6,7 +6,6 @@ Capability: wallet
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -48,12 +47,9 @@ class WalletPlugin(Plugin, WalletProvider):
     async def start(self) -> None:
         """Check wallet availability."""
         if self._scripts_dir and self._scripts_dir.exists():
-            print(f"[Wallet] Initialized from {self._scripts_dir}", file=sys.stderr)
+            self.log_info(f"Initialized from {self._scripts_dir}")
         else:
-            print(
-                f"[Wallet] Warning: Scripts not found at {self._scripts_dir}",
-                file=sys.stderr,
-            )
+            self.log_warn(f"Scripts not found at {self._scripts_dir}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

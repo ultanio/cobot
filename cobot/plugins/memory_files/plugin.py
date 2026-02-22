@@ -5,7 +5,6 @@ Implements memory extension points using .md files in workspace/memory/files/.
 Priority: 14 (after memory extension point definer)
 """
 
-import sys
 from pathlib import Path
 
 from ..base import Plugin, PluginMeta
@@ -55,7 +54,7 @@ class MemoryFilesPlugin(Plugin):
 
         # Ensure directory exists
         self._files_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[Memory-Files] {self._files_dir}", file=sys.stderr)
+        self.log_info(f"{self._files_dir}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

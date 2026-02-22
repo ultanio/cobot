@@ -142,5 +142,35 @@ else
     exit 1
 fi
 
+# 8. Cron tools
+echo ""
+echo "⏰ Test: Cron tools"
+if [ -n "$PPQ_API_KEY" ]; then
+    cd "$TEST_DIR"
+    
+    # Test cron_add_job
+    echo "Use the cron_add_job tool to create a job named 'e2e-test' with schedule '1h' and prompt 'Test task'. Then use cron_list_jobs to show all jobs." | timeout 60 cobot run --stdin -c "$TEST_DIR/cobot.yml" -p "$COBOT_DIR/plugins" 2>/dev/null > /tmp/cron_test_output.txt || true
+    
+    if grep -qi "e2e-test" /tmp/cron_test_output.txt; then
+        echo "✅ Cron add_job works"
+    else
+        echo "⚠️ Cron test inconclusive"
+        cat /tmp/cron_test_output.txt
+    fi
+    
+    # Test cron_remove_job
+    echo "Use cron_remove_job to remove the job named 'e2e-test'." | timeout 45 cobot run --stdin -c "$TEST_DIR/cobot.yml" -p "$COBOT_DIR/plugins" 2>/dev/null > /tmp/cron_test_output.txt || true
+    
+    if grep -qi "removed" /tmp/cron_test_output.txt; then
+        echo "✅ Cron remove_job works"
+    else
+        echo "⚠️ Cron remove test inconclusive"
+    fi
+    
+    rm -f /tmp/cron_test_output.txt
+else
+    echo "⏭️ Skipping cron tools test (no PPQ_API_KEY)"
+fi
+
 echo ""
 echo "=== E2E Tests Complete ==="

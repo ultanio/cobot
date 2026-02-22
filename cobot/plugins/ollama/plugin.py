@@ -5,7 +5,6 @@ Capability: llm
 """
 
 import os
-import sys
 from typing import Optional
 
 import httpx
@@ -44,13 +43,10 @@ class OllamaPlugin(Plugin, LLMProvider):
         """Test connection to Ollama."""
         try:
             models = self.list_models()
-            print(
-                f"[Ollama] Connected to {self._host}, {len(models)} models available",
-                file=sys.stderr,
-            )
-            print(f"[Ollama] Using model: {self._model}", file=sys.stderr)
+            self.log_info(f"Connected to {self._host}, {len(models)} models available")
+            self.log_info(f"Using model: {self._model}")
         except LLMError as e:
-            print(f"[Ollama] Warning: {e}", file=sys.stderr)
+            self.log_warn(f"{e}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

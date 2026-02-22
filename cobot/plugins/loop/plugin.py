@@ -20,6 +20,58 @@ from ..base import Plugin, PluginMeta
 from ..interfaces import LLMProvider, LLMError, ToolProvider
 
 
+class AggregatedToolProvider(ToolProvider):
+    """Aggregates tools from multiple ToolProvider plugins."""
+
+    def __init__(self, providers: list):
+        self._providers = providers
+        self._tool_map: dict[str, ToolProvider] = {}  # tool_name -> provider
+        self._build_tool_map()
+
+    def _build_tool_map(self):
+        """Build mapping of tool names to providers."""
+        for provider in self._providers:
+            try:
+                for tool_def in provider.get_definitions():
+                    name = tool_def.get("function", {}).get("name")
+                    if name and name not in self._tool_map:
+                        self._tool_map[name] = provider
+            except Exception as e:
+                # Note: Can't use self.log_* here as this is a helper class
+                print(f"[Loop] Error building tool map: {e}", file=sys.stderr)
+
+    def get_definitions(self) -> list[dict]:
+        """Get all tool definitions from all providers."""
+        all_tools = []
+        seen_names = set()
+        for provider in self._providers:
+            try:
+                for tool_def in provider.get_definitions():
+                    name = tool_def.get("function", {}).get("name")
+                    if name and name not in seen_names:
+                        all_tools.append(tool_def)
+                        seen_names.add(name)
+            except Exception as e:
+                # Note: Can't use self.log_* here as this is a helper class
+                print(f"[Loop] Error getting definitions: {e}", file=sys.stderr)
+        return all_tools
+
+    def execute(self, tool_name: str, args: dict) -> str:
+        """Execute tool via the appropriate provider."""
+        provider = self._tool_map.get(tool_name)
+        if provider:
+            return provider.execute(tool_name, args)
+        return f"Error: Unknown tool '{tool_name}'"
+
+    @property
+    def restart_requested(self) -> bool:
+        """Check if any provider requested restart."""
+        for provider in self._providers:
+            if hasattr(provider, "restart_requested") and provider.restart_requested:
+                return True
+        return False
+
+
 class LoopPlugin(Plugin):
     """Main agent message loop.
 
@@ -45,6 +97,7 @@ class LoopPlugin(Plugin):
         capabilities=["loop"],
         dependencies=["config", "communication"],
         extension_points=[
+            "session.poll_messages",  # Inject messages into the loop (cron uses this)
             "loop.on_message",
             "loop.transform_system_prompt",
             "loop.transform_history",
@@ -81,7 +134,7 @@ class LoopPlugin(Plugin):
                 if soul_path.exists():
                     self._soul = soul_path.read_text()
 
-        print(f"[Loop] Ready (interval={self._interval}s)", file=sys.stderr)
+        self.log_info(f"Ready (interval={self._interval}s)")
 
     async def stop(self) -> None:
         pass
@@ -96,22 +149,33 @@ class LoopPlugin(Plugin):
             return self._registry.get("communication")
         return None
 
-    def _get_tools(self) -> Optional[ToolProvider]:
+    def _get_tools(self) -> Optional["AggregatedToolProvider"]:
+        """Get aggregated tool provider from all ToolProvider plugins."""
         if self._registry:
-            return self._registry.get_by_capability("tools")
+            providers = self._registry.all_with_capability("tools")
+            if providers:
+                return AggregatedToolProvider(providers)
         return None
 
     async def run(self) -> None:
         """Main loop: poll → handle → sleep."""
         comm = self._get_comm()
         if not comm:
-            print("[Loop] No communication plugin, exiting", file=sys.stderr)
+            self.log_error("No communication plugin, exiting")
             return
 
         try:
             while True:
                 try:
-                    messages = comm.poll()
+                    # Poll communication channels
+                    messages = list(comm.poll() or [])
+
+                    # Poll extension point for injected messages (cron, etc.)
+                    injected = await self.call_extension("session.poll_messages")
+                    for msg_list in injected:
+                        if isinstance(msg_list, list):
+                            messages.extend(msg_list)
+
                     if messages:
                         await asyncio.gather(
                             *[self._handle_message(msg) for msg in messages],

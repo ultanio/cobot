@@ -119,7 +119,6 @@ def run(
         if config_path.exists():
             with open(config_path) as f:
                 raw_config = yaml.safe_load(f) or {}
-            print(f"[Config] Loaded from {config_path}", file=sys.stderr)
 
         # Override logger level if --debug flag
         if debug:
@@ -128,11 +127,13 @@ def run(
             raw_config["logger"]["level"] = "debug"
 
         # Persistence: disabled by default, --continue to enable
+        # Also enable for stdin mode (interactive session needs history)
         if "persistence" not in raw_config:
             raw_config["persistence"] = {}
-        if continue_session:
+        if continue_session or stdin:
             raw_config["persistence"]["enabled"] = True
-            click.echo("Continuing previous conversation", err=True)
+            if continue_session:
+                click.echo("Continuing previous conversation", err=True)
         else:
             raw_config["persistence"]["enabled"] = False
 

@@ -139,10 +139,7 @@ class Plugin(ABC):
                 if result is not None:
                     results.append(result)
             except Exception as e:
-                print(
-                    f"[{self.meta.id}] Error in {pid}.{method_name}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error in {pid}.{method_name}: {e}")
         return results
 
     async def call_extension_chain(self, point: str, ctx: dict) -> dict:
@@ -172,11 +169,32 @@ class Plugin(ABC):
                 if ctx.get("abort"):
                     break
             except Exception as e:
-                print(
-                    f"[{self.meta.id}] Error in {pid}.{method_name}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error in {pid}.{method_name}: {e}")
         return ctx
+
+    # --- Logging Methods ---
+
+    def log(self, level: str, msg: str, **extra):
+        """Log via the logger plugin if available."""
+        if self._registry:
+            logger = self._registry.get_by_capability("logging")
+            if logger and hasattr(logger, "log"):
+                logger.log(level, self.meta.id, msg, **extra)
+                return
+        # Fallback if no logger plugin
+        print(f"[{self.meta.id}] {msg}", file=sys.stderr)
+
+    def log_debug(self, msg: str, **extra):
+        self.log("debug", msg, **extra)
+
+    def log_info(self, msg: str, **extra):
+        self.log("info", msg, **extra)
+
+    def log_warn(self, msg: str, **extra):
+        self.log("warn", msg, **extra)
+
+    def log_error(self, msg: str, **extra):
+        self.log("error", msg, **extra)
 
     # --- CLI Extension ---
 

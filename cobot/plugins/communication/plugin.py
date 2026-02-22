@@ -6,7 +6,6 @@ like the session plugin provide the actual channel routing.
 Priority: 5 (early - before implementations)
 """
 
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -75,7 +74,7 @@ class CommunicationPlugin(Plugin):
 
     async def start(self) -> None:
         """Initialize communication aggregator."""
-        print("[Communication] Ready (extension point definer)", file=sys.stderr)
+        self.log_info("Ready (extension point definer)")
 
     async def stop(self) -> None:
         """Nothing to clean up."""
@@ -102,10 +101,7 @@ class CommunicationPlugin(Plugin):
                 impl_messages = method()
                 messages.extend(impl_messages)
             except Exception as e:
-                print(
-                    f"[Communication] Error polling via {plugin_id}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error polling via {plugin_id}: {e}")
 
         # Sort by timestamp
         messages.sort(key=lambda m: m.timestamp)
@@ -123,7 +119,7 @@ class CommunicationPlugin(Plugin):
             True if sent successfully
         """
         if not self._registry:
-            print("[Communication] No registry available", file=sys.stderr)
+            self.log_error("No registry available")
             return False
 
         for plugin_id, plugin, method_name in self._registry.get_implementations(
@@ -135,15 +131,9 @@ class CommunicationPlugin(Plugin):
                 if result:
                     return True
             except Exception as e:
-                print(
-                    f"[Communication] Error sending via {plugin_id}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error sending via {plugin_id}: {e}")
 
-        print(
-            f"[Communication] No implementation handled channel: {message.channel_type}",
-            file=sys.stderr,
-        )
+        self.log_warn(f"No implementation handled channel: {message.channel_type}")
         return False
 
     def typing(self, channel_type: str, channel_id: str) -> None:
@@ -164,10 +154,7 @@ class CommunicationPlugin(Plugin):
                 method(channel_type, channel_id)
                 return  # First implementation that handles it
             except Exception as e:
-                print(
-                    f"[Communication] Error typing via {plugin_id}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error typing via {plugin_id}: {e}")
 
     def get_channels(self) -> list[str]:
         """Get list of available channel types.
@@ -188,10 +175,7 @@ class CommunicationPlugin(Plugin):
                 impl_channels = method()
                 channels.extend(impl_channels)
             except Exception as e:
-                print(
-                    f"[Communication] Error getting channels from {plugin_id}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error getting channels from {plugin_id}: {e}")
 
         return list(set(channels))  # Dedupe
 

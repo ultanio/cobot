@@ -77,6 +77,8 @@ def mock_registry():
     def all_with_cap(cap):
         if cap == "loop":
             return []
+        if cap == "tools":
+            return [tools_plugin]
         return []
 
     registry.get = get_plugin
@@ -85,6 +87,7 @@ def mock_registry():
     registry.list_plugins.return_value = []
     registry.stop_all = AsyncMock()
     registry.run_hook = AsyncMock(side_effect=lambda hook, ctx: ctx)
+    registry.get_implementations = Mock(return_value=[])  # No extension point implementations
 
     return registry
 

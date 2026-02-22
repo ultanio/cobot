@@ -3,8 +3,6 @@
 Priority: 16 (after persistence)
 """
 
-import sys
-
 from ..base import Plugin, PluginMeta
 
 
@@ -35,7 +33,7 @@ class CompactionPlugin(Plugin):
         pass
 
     async def start(self) -> None:
-        print("[Compaction] Ready", file=sys.stderr)
+        self.log_info("Ready")
 
     async def stop(self) -> None:
         pass
@@ -80,7 +78,7 @@ class CompactionPlugin(Plugin):
             )
             return response.content
         except Exception as e:
-            print(f"[Compaction] Summarization failed: {e}", file=sys.stderr)
+            self.log_error(f"Summarization failed: {e}")
             return f"[Earlier conversation - {len(messages)} messages]"
 
     async def transform_history(self, ctx: dict) -> dict:
@@ -110,7 +108,7 @@ class CompactionPlugin(Plugin):
         if total_tokens <= MAX_TOKENS:
             return ctx
 
-        print(f"[Compaction] {total_tokens} tokens, compacting...", file=sys.stderr)
+        self.log_info(f"{total_tokens} tokens, compacting...")
 
         # Find split point
         recent_tokens = 0

@@ -5,7 +5,6 @@ Priority: 15 (after security, before compaction)
 
 import hashlib
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -42,10 +41,7 @@ class PersistencePlugin(Plugin):
 
     async def start(self) -> None:
         if not self._enabled:
-            print(
-                "[Persistence] Disabled (use --continue to load history)",
-                file=sys.stderr,
-            )
+            self.log_info("Disabled (use --continue to load history)")
             return
 
         # Get workspace path from workspace plugin
@@ -63,7 +59,7 @@ class PersistencePlugin(Plugin):
             )
 
         self._memory_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[Persistence] Memory dir: {self._memory_dir}", file=sys.stderr)
+        self.log_info(f"Memory dir: {self._memory_dir}")
 
     async def stop(self) -> None:
         pass

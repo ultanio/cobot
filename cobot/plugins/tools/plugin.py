@@ -7,7 +7,6 @@ Capability: tools
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from ..base import Plugin, PluginMeta
@@ -173,9 +172,8 @@ class ToolsPlugin(Plugin, ToolProvider):
 
     async def start(self) -> None:
         """Tools plugin is ready."""
-        print(
-            f"[Tools] Initialized, exec={'enabled' if self._exec_enabled else 'disabled'}",
-            file=sys.stderr,
+        self.log_info(
+            f"Initialized, exec={'enabled' if self._exec_enabled else 'disabled'}"
         )
 
     async def stop(self) -> None:
@@ -185,11 +183,33 @@ class ToolsPlugin(Plugin, ToolProvider):
     # --- ToolProvider Interface ---
 
     def get_definitions(self) -> list[dict]:
-        """Get tool definitions for LLM."""
-        return TOOL_DEFINITIONS
+        """Get tool definitions for LLM.
+
+        Aggregates tools from all ToolProvider plugins.
+        """
+        all_tools = list(TOOL_DEFINITIONS)
+
+        # Aggregate from other ToolProvider plugins
+        if self._registry:
+            for plugin in self._registry.all_with_capability("tools"):
+                if plugin.meta.id == self.meta.id:
+                    continue  # Skip self
+                try:
+                    plugin_tools = plugin.get_definitions()
+                    all_tools.extend(plugin_tools)
+                except Exception as e:
+                    self.log_error(
+                        f"Error getting definitions from {plugin.meta.id}: {e}"
+                    )
+
+        return all_tools
 
     def execute(self, tool_name: str, args: dict) -> str:
-        """Execute a tool by name."""
+        """Execute a tool by name.
+
+        Routes to the appropriate plugin based on tool name.
+        """
+        # Built-in tools
         executors = {
             "read_file": self._read_file,
             "write_file": self._write_file,
@@ -202,17 +222,45 @@ class ToolsPlugin(Plugin, ToolProvider):
         }
 
         executor = executors.get(tool_name)
-        if not executor:
-            return f"Error: Unknown tool '{tool_name}'"
+        if executor:
+            try:
+                return executor(**args)
+            except Exception as e:
+                return f"Error: {type(e).__name__}: {e}"
 
-        try:
-            return executor(**args)
-        except Exception as e:
-            return f"Error: {type(e).__name__}: {e}"
+        # Route to other ToolProvider plugins
+        if self._registry:
+            for plugin in self._registry.all_with_capability("tools"):
+                if plugin.meta.id == self.meta.id:
+                    continue  # Skip self
+                try:
+                    # Check if this plugin provides the tool
+                    for tool_def in plugin.get_definitions():
+                        if tool_def.get("function", {}).get("name") == tool_name:
+                            return plugin.execute(tool_name, args)
+                except Exception as e:
+                    self.log_error(
+                        f"Error executing {tool_name} via {plugin.meta.id}: {e}"
+                    )
+                    return f"Error: {type(e).__name__}: {e}"
+
+        return f"Error: Unknown tool '{tool_name}'"
 
     @property
     def restart_requested(self) -> bool:
-        return self._restart_requested
+        """Check if any tool provider requested a restart."""
+        if self._restart_requested:
+            return True
+
+        # Check other ToolProvider plugins
+        if self._registry:
+            for plugin in self._registry.all_with_capability("tools"):
+                if plugin.meta.id == self.meta.id:
+                    continue
+                if hasattr(plugin, "restart_requested") and plugin.restart_requested:
+                    return True
+
+        return False
 
     # --- Tool Implementations ---
 

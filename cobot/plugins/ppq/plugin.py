@@ -5,7 +5,6 @@ Capability: llm
 """
 
 import os
-import sys
 from typing import Optional
 
 import httpx
@@ -52,9 +51,9 @@ class PPQPlugin(Plugin, LLMProvider):
     async def start(self) -> None:
         """Validate configuration."""
         if not self._api_key:
-            print("[PPQ] Warning: No API key configured", file=sys.stderr)
+            self.log_warn("No API key configured")
         else:
-            print(f"[PPQ] Initialized with model {self._model}", file=sys.stderr)
+            self.log_info(f"Initialized with model {self._model}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

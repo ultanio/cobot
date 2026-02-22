@@ -9,7 +9,6 @@ all implementations.
 Priority: 12 (after workspace, before implementations)
 """
 
-import sys
 from typing import Optional
 
 import click
@@ -41,7 +40,7 @@ class MemoryPlugin(Plugin):
 
     async def start(self) -> None:
         """Initialize memory aggregator."""
-        print("[Memory] Ready (extension point definer)", file=sys.stderr)
+        self.log_info("Ready (extension point definer)")
 
     async def stop(self) -> None:
         """Nothing to clean up."""
@@ -66,7 +65,7 @@ class MemoryPlugin(Plugin):
                 method = getattr(plugin, method_name)
                 method(key, content)
             except Exception as e:
-                print(f"[Memory] Error storing via {plugin_id}: {e}", file=sys.stderr)
+                self.log_error(f"Error storing via {plugin_id}: {e}")
 
     def retrieve(self, key: str) -> Optional[str]:
         """Retrieve content from first implementation that has it.
@@ -89,9 +88,7 @@ class MemoryPlugin(Plugin):
                 if result:
                     return result
             except Exception as e:
-                print(
-                    f"[Memory] Error retrieving via {plugin_id}: {e}", file=sys.stderr
-                )
+                self.log_error(f"Error retrieving via {plugin_id}: {e}")
 
         return None
 
@@ -121,7 +118,7 @@ class MemoryPlugin(Plugin):
                     r["source"] = plugin_id
                 results.extend(impl_results)
             except Exception as e:
-                print(f"[Memory] Error searching via {plugin_id}: {e}", file=sys.stderr)
+                self.log_error(f"Error searching via {plugin_id}: {e}")
 
         # Sort by score if available
         results.sort(key=lambda r: r.get("score", 0), reverse=True)

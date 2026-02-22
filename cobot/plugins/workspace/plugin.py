@@ -11,7 +11,6 @@ Workspace location priority:
 """
 
 import os
-import sys
 from pathlib import Path
 
 from ..base import Plugin, PluginMeta
@@ -61,7 +60,7 @@ class WorkspacePlugin(Plugin):
         for subdir in subdirs:
             (self._workspace / subdir).mkdir(exist_ok=True)
 
-        print(f"[Workspace] {self._workspace}", file=sys.stderr)
+        self.log_info(f"{self._workspace}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

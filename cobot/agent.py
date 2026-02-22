@@ -46,7 +46,10 @@ class Cobot:
     # --- Stdin mode (for testing/development) ---
 
     async def run_stdin(self) -> None:
-        """Interactive stdin mode — sends input to the first loop plugin."""
+        """Interactive stdin mode — sends input to the first loop plugin.
+
+        Also runs background tasks (cron scheduler, etc.) concurrently.
+        """
         loop_plugin = self.registry.all_with_capability("loop")
         if not loop_plugin:
             print("Error: No loop plugins registered", file=sys.stderr)
@@ -55,28 +58,113 @@ class Cobot:
         loop = loop_plugin[0]
         print("Cobot ready. Type a message (Ctrl+D to exit):", file=sys.stderr)
 
+        # Re-start plugins in this event loop (they were started in a different loop)
+        await self.registry.restart_all()
+
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
         await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
 
+        async def stdin_loop():
+            """Handle stdin messages."""
+            try:
+                while True:
+                    line = await reader.readline()
+                    if not line:
+                        break
+
+                    message = line.decode().strip()
+                    if not message:
+                        continue
+
+                    # Call on_message extension point (saves user message)
+                    ctx = await loop.call_extension_chain(
+                        "loop.on_message",
+                        {
+                            "message": message,
+                            "sender": "stdin",
+                            "sender_id": "stdin",
+                            "channel_type": "stdin",
+                            "channel_id": "stdin",
+                            "event_id": f"stdin-{id(line)}",
+                        },
+                    )
+                    if ctx.get("abort"):
+                        continue
+
+                    # Get response
+                    if hasattr(loop, "_respond"):
+                        response = await loop._respond(
+                            ctx.get("message", message),
+                            sender="stdin",
+                            channel_type="stdin",
+                            channel_id="stdin",
+                        )
+                        print(response)
+
+                        # Call after_send extension point (saves assistant message)
+                        await loop.call_extension_chain(
+                            "loop.after_send",
+                            {
+                                "text": response,
+                                "recipient": "stdin",
+                                "channel_type": "stdin",
+                                "channel_id": "stdin",
+                            },
+                        )
+                    else:
+                        print(f"[{loop.meta.id}] No _respond method", file=sys.stderr)
+            except asyncio.CancelledError:
+                pass
+
+        async def poll_loop():
+            """Poll for cron/injected messages in the background."""
+            try:
+                while True:
+                    # Check for cancellation before expensive work
+                    await asyncio.sleep(0)
+
+                    # Poll extension point for injected messages
+                    injected = await loop.call_extension("session.poll_messages")
+                    for msg_list in injected:
+                        if isinstance(msg_list, list):
+                            for msg in msg_list:
+                                if hasattr(loop, "_respond"):
+                                    response = await loop._respond(
+                                        msg.content,
+                                        sender=msg.sender_name,
+                                        channel_type=msg.channel_type,
+                                        channel_id=msg.channel_id,
+                                    )
+                                    # Build output atomically, handle IO errors on shutdown
+                                    try:
+                                        output = (
+                                            f"\n[Cron: {msg.channel_id}] {response}"
+                                        )
+                                        print(output, flush=True)
+                                    except (BlockingIOError, BrokenPipeError, OSError):
+                                        # stdout closed during shutdown, exit cleanly
+                                        return
+                    await asyncio.sleep(30)  # Poll every 30 seconds
+            except asyncio.CancelledError:
+                pass
+
         try:
-            while True:
-                line = await reader.readline()
-                if not line:
-                    break
+            # Run stdin and poll loops concurrently
+            # When stdin finishes (Ctrl+D), cancel poll_loop to avoid
+            # BlockingIOError on print during shutdown
+            stdin_task = asyncio.create_task(stdin_loop())
+            poll_task = asyncio.create_task(poll_loop())
 
-                message = line.decode().strip()
-                if not message:
-                    continue
+            # Wait for stdin to finish (user pressed Ctrl+D)
+            await stdin_task
 
-                # Use the loop's respond method if available
-                if hasattr(loop, "_respond"):
-                    response = await loop._respond(message, sender="stdin")
-                    print(response)
-                else:
-                    print(f"[{loop.meta.id}] No _respond method", file=sys.stderr)
-        except asyncio.CancelledError:
-            pass
+            # Cancel poll_loop cleanly
+            poll_task.cancel()
+            try:
+                await poll_task
+            except asyncio.CancelledError:
+                pass
         finally:
             await self.registry.stop_all()
 

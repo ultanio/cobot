@@ -109,42 +109,54 @@ def my_handler(self, ctx: dict) -> dict:
     return ctx
 ```
 
-## Hook Chain
+## Extension Points (Loop Plugin)
 
-Lifecycle hooks you can implement in plugins:
+The loop plugin defines extension points for the message lifecycle. Implement them via `meta.implements`:
 
 ```python
-def on_message_received(self, ctx: dict) -> dict:
+meta = PluginMeta(
+    id="myplugin",
+    version="1.0.0",
+    implements={
+        "loop.on_message": "handle_message",
+        "loop.before_llm": "modify_prompt",
+    },
+)
+
+async def handle_message(self, ctx: dict) -> dict:
     # ctx["message"], ctx["sender"]
     return ctx
 
-def transform_system_prompt(self, ctx: dict) -> dict:
-    # ctx["prompt"]
-    return ctx
-
-def transform_history(self, ctx: dict) -> dict:
-    # ctx["messages"]
-    return ctx
-
-def on_before_llm_call(self, ctx: dict) -> dict:
+async def modify_prompt(self, ctx: dict) -> dict:
     # ctx["messages"], ctx["tools"]
     return ctx
+```
 
-def on_after_llm_call(self, ctx: dict) -> dict:
-    # ctx["response"]
-    return ctx
+### Available Extension Points
 
-def on_before_tool_exec(self, ctx: dict) -> dict:
-    # ctx["tool"], ctx["args"]
-    # Set ctx["abort"] = True to block
-    return ctx
+| Extension Point | Context | Description |
+|-----------------|---------|-------------|
+| `loop.on_message` | message, sender | Message received |
+| `loop.transform_system_prompt` | prompt | Modify system prompt |
+| `loop.transform_history` | messages | Modify conversation history |
+| `loop.before_llm` | messages, tools | Before LLM call |
+| `loop.after_llm` | response | After LLM response |
+| `loop.before_tool` | tool, args | Before tool execution |
+| `loop.after_tool` | tool, result | After tool execution |
+| `loop.transform_response` | response | Modify final response |
+| `loop.before_send` | text, recipient | Before sending |
+| `loop.after_send` | text, recipient | After sending |
+| `loop.on_error` | error | Error occurred |
 
-def on_after_tool_exec(self, ctx: dict) -> dict:
-    # ctx["tool"], ctx["result"]
-    return ctx
+### Aborting Processing
 
-def transform_response(self, ctx: dict) -> dict:
-    # ctx["response"]
+Set `ctx["abort"] = True` to stop the chain:
+
+```python
+async def handle_message(self, ctx: dict) -> dict:
+    if is_spam(ctx["message"]):
+        ctx["abort"] = True
+        ctx["abort_message"] = "Message blocked"
     return ctx
 ```
 
@@ -312,6 +324,97 @@ meta = PluginMeta(
     priority=50,
     dependencies=["base-plugin"],
 )
+```
+
+## Scheduled Execution
+
+### Spawning Subagents
+
+Use the `spawn_subagent` tool to delegate work:
+
+```json
+{
+  "name": "spawn_subagent",
+  "arguments": {
+    "task": "Research topic X and summarize",
+    "context": "{\"focus\": \"technical details\"}",
+    "timeout_minutes": 10
+  }
+}
+```
+
+Or via plugin API:
+
+```python
+subagent = registry.get("subagent")
+result = await subagent.spawn(
+    task="Analyze this code",
+    context={"code": "..."},
+    timeout_seconds=300,
+)
+if result.success:
+    print(result.output)
+```
+
+### Cron Jobs
+
+Schedule periodic tasks:
+
+```yaml
+cron:
+  jobs:
+    # Isolated mode - spawns subagent
+    - name: daily-report
+      schedule: "0 9 * * *"
+      mode: isolated
+      prompt: "Generate daily summary"
+    
+    # Main session mode - injects into main session
+    - name: inbox-check
+      schedule: "*/30 * * * *"
+      mode: main_session
+      prompt: "Check filedrop inbox"
+```
+
+Dynamic job management:
+
+```python
+cron = registry.get("cron")
+
+# Add job
+cron.add_job({
+    "name": "custom-task",
+    "schedule": "1h",
+    "mode": "isolated",
+    "prompt": "Do something",
+})
+
+# Remove job
+cron.remove_job("custom-task")
+```
+
+### Heartbeat
+
+Periodic main session wake-up:
+
+```yaml
+heartbeat:
+  enabled: true
+  interval_minutes: 15
+  prompt_file: HEARTBEAT.md
+  quiet_hours: "23:00-07:00"
+```
+
+Create `HEARTBEAT.md`:
+
+```markdown
+## Heartbeat Check
+
+1. Check filedrop inbox
+2. Review pending tasks
+3. Commit workspace changes
+
+Reply HEARTBEAT_OK if nothing needs attention.
 ```
 
 ## Agent-to-Agent Protocol

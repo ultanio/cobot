@@ -9,7 +9,6 @@ Capability: communication
 
 import json
 import os
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -70,7 +69,7 @@ class FileDropPlugin(Plugin, CommunicationProvider):
         outbox = self._base_dir / self._identity / "outbox"
         outbox.mkdir(parents=True, exist_ok=True)
 
-        print(f"[FileDrop] Inbox: {self._inbox}", file=sys.stderr)
+        self.log_info(f"Inbox: {self._inbox}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""
@@ -125,7 +124,7 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                 msg_file.rename(processed_dir / msg_file.name)
 
             except Exception as e:
-                print(f"[FileDrop] Error reading {msg_file}: {e}", file=sys.stderr)
+                self.log_error(f"Error reading {msg_file}: {e}")
 
         return messages
 
@@ -171,7 +170,7 @@ class FileDropPlugin(Plugin, CommunicationProvider):
             with open(outbox / f"{msg_id}.json", "w") as f:
                 json.dump(msg_data, f, indent=2)
 
-        print(f"[FileDrop] Sent to {recipient}: {msg_id}", file=sys.stderr)
+        self.log_info(f"Sent to {recipient}: {msg_id}")
         return msg_id
 
 

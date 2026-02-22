@@ -11,7 +11,6 @@ Bot owners can approve via CLI:
   cobot pairing approve <code>
 """
 
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -65,7 +64,7 @@ class PairingPlugin(Plugin):
     async def start(self) -> None:
         """Initialize storage and bootstrap owner_ids."""
         if not self._enabled:
-            print("[pairing] Disabled", file=sys.stderr)
+            self.log_info("Disabled")
             return
 
         # Initialize storage
@@ -86,10 +85,7 @@ class PairingPlugin(Plugin):
 
         authorized_count = len(self._storage.get_authorized())
         pending_count = len(self._storage.get_pending())
-        print(
-            f"[pairing] Ready ({authorized_count} authorized, {pending_count} pending)",
-            file=sys.stderr,
-        )
+        self.log_info(f"Ready ({authorized_count} authorized, {pending_count} pending)")
 
     async def stop(self) -> None:
         """Clean up."""
@@ -118,8 +114,8 @@ class PairingPlugin(Plugin):
                 )
             )
         else:
-            # Fallback: just print it
-            print(f"[pairing] {message}", file=sys.stderr)
+            # Fallback: just log it
+            self.log_info(f"{message}")
 
     async def on_message_received(self, ctx: dict) -> dict:
         """Check if user is authorized."""
@@ -149,9 +145,8 @@ class PairingPlugin(Plugin):
         self._send_pairing_message(channel, channel_id, user_id, req.code)
 
         # Log
-        print(
-            f"[pairing] Unauthorized: {user_name} ({channel}:{user_id}) - code: {req.code}",
-            file=sys.stderr,
+        self.log_info(
+            f"Unauthorized: {user_name} ({channel}:{user_id}) - code: {req.code}"
         )
 
         # Abort processing

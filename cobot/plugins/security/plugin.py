@@ -6,7 +6,6 @@ Priority: 10 (early, before other processing)
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -42,9 +41,9 @@ class SecurityPlugin(Plugin):
 
     async def start(self) -> None:
         if self._shield_script and self._shield_script.exists():
-            print("[Security] Shield initialized", file=sys.stderr)
+            self.log_info("Shield initialized")
         else:
-            print("[Security] Warning: Shield script not found", file=sys.stderr)
+            self.log_warn("Shield script not found")
 
     async def stop(self) -> None:
         pass
@@ -87,7 +86,7 @@ class SecurityPlugin(Plugin):
 
         if result.get("flagged"):
             sender = ctx.get("sender", "")[:16]
-            print(f"[Security] ⚠️ BLOCKED injection from {sender}...", file=sys.stderr)
+            self.log_warn(f"⚠️ BLOCKED injection from {sender}...")
             ctx["abort"] = True
             ctx["abort_message"] = "Message blocked by security filter."
 

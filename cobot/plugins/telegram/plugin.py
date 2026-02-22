@@ -19,7 +19,6 @@ Telegram Extension Points (defined):
 """
 
 import os
-import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -188,7 +187,7 @@ class TelegramPlugin(Plugin):
         )
 
         if not self._bot_token:
-            print("[telegram] Warning: No bot_token configured", file=sys.stderr)
+            self.log_warn("No bot_token configured")
             return
 
         # Parse groups
@@ -215,7 +214,7 @@ class TelegramPlugin(Plugin):
         # Long polling timeout (default: 30 seconds)
         self._poll_timeout = tg_config.get("poll_timeout", 30)
 
-        print(f"[telegram] Configured with {len(self._groups)} groups", file=sys.stderr)
+        self.log_info(f"Configured with {len(self._groups)} groups")
 
     def set_registry(self, registry) -> None:
         """Set registry reference for calling extension points."""
@@ -234,7 +233,7 @@ class TelegramPlugin(Plugin):
     async def start(self) -> None:
         """Start the Telegram bot."""
         if not self._bot_token:
-            print("[telegram] Cannot start: no bot token", file=sys.stderr)
+            self.log_error("Cannot start: no bot token")
             return
 
         self._bot = Bot(token=self._bot_token)
@@ -246,7 +245,7 @@ class TelegramPlugin(Plugin):
         )
 
         self._running = True
-        print("[telegram] Bot initialized", file=sys.stderr)
+        self.log_info("Bot initialized")
 
     async def stop(self) -> None:
         """Stop the Telegram bot."""
@@ -254,7 +253,7 @@ class TelegramPlugin(Plugin):
         if self._app:
             # Graceful shutdown
             pass
-        print("[telegram] Bot stopped", file=sys.stderr)
+        self.log_info("Bot stopped")
 
     # --- Hook: on_before_llm_call ---
 
@@ -367,7 +366,7 @@ class TelegramPlugin(Plugin):
                 messages.append(telegram_msg.to_incoming_message())
 
         except Exception as e:
-            print(f"[telegram] Poll error: {e}", file=sys.stderr)
+            self.log_error(f"Poll error: {e}")
 
         return messages
 
@@ -409,7 +408,7 @@ class TelegramPlugin(Plugin):
             return data.get("ok", False)
 
         except Exception as e:
-            print(f"[telegram] Send error: {e}", file=sys.stderr)
+            self.log_error(f"Send error: {e}")
             return False
 
     # --- session.typing implementation ---
@@ -436,7 +435,7 @@ class TelegramPlugin(Plugin):
                 client.post(url, json=payload)
 
         except Exception as e:
-            print(f"[telegram] Typing error: {e}", file=sys.stderr)
+            self.log_error(f"Typing error: {e}")
 
     # --- Helper for session.broadcast ---
 
@@ -569,13 +568,10 @@ class TelegramPlugin(Plugin):
                     "mime_type": getattr(file_obj, "mime_type", None),
                 }
 
-                print(
-                    f"[telegram] Downloaded {media_type}: {local_path}",
-                    file=sys.stderr,
-                )
+                self.log_info(f"Downloaded {media_type}: {local_path}")
 
             except Exception as e:
-                print(f"[telegram] Media download failed: {e}", file=sys.stderr)
+                self.log_error(f"Media download failed: {e}")
 
         return media_info
 
@@ -585,7 +581,7 @@ class TelegramPlugin(Plugin):
             try:
                 handler(ctx)
             except Exception as e:
-                print(f"[telegram] Handler error for {point}: {e}", file=sys.stderr)
+                self.log_error(f"Handler error for {point}: {e}")
 
         if self._registry:
             return self._registry.call_extension(point, ctx)
@@ -647,19 +643,19 @@ class TelegramPlugin(Plugin):
     def run_polling(self) -> None:
         """Start polling for messages (blocking, push mode)."""
         if not self._app:
-            print("[telegram] Cannot poll: app not initialized", file=sys.stderr)
+            self.log_error("Cannot poll: app not initialized")
             return
 
-        print("[telegram] Starting polling...", file=sys.stderr)
+        self.log_info("Starting polling...")
         self._app.run_polling(allowed_updates=Update.ALL_TYPES)
 
     async def run_polling_async(self) -> None:
         """Start polling for messages (async, push mode)."""
         if not self._app:
-            print("[telegram] Cannot poll: app not initialized", file=sys.stderr)
+            self.log_error("Cannot poll: app not initialized")
             return
 
-        print("[telegram] Starting async polling...", file=sys.stderr)
+        self.log_info("Starting async polling...")
         await self._app.initialize()
         await self._app.start()
         await self._app.updater.start_polling(allowed_updates=Update.ALL_TYPES)

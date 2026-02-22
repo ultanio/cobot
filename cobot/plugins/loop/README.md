@@ -54,6 +54,7 @@ to participate in the message processing pipeline.
 
 | Extension Point | Type | Description |
 |-----------------|------|-------------|
+| `session.poll_messages` | collect | Inject messages into the loop (used by cron). |
 | `loop.on_message` | chain | Called when a message arrives. Can filter/transform. |
 | `loop.transform_system_prompt` | chain | Modify the system prompt before LLM call. |
 | `loop.transform_history` | chain | Modify conversation history before LLM call. |
@@ -69,8 +70,12 @@ to participate in the message processing pipeline.
 ## Pipeline
 
 ```
-comm.poll()
-    │
+comm.poll() ←──────────────────┐
+    │                          │
+    ▼                          │
+session.poll_messages ─────────┤ (merge)
+    │                          │
+    ├──────────────────────────┘
     ▼
 loop.on_message ──── abort? → stop
     │

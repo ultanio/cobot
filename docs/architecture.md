@@ -227,6 +227,67 @@ graph TB
     style LN fill:#f59e0b
 ```
 
+## Scheduled Execution
+
+Cobot supports scheduled and delegated execution through three composable plugins:
+
+```mermaid
+graph TB
+    subgraph "Heartbeat"
+        HB[heartbeat plugin] --> |"registers job"| CR
+    end
+    
+    subgraph "Cron"
+        CR[cron plugin] --> |"mode: isolated"| SA
+        CR --> |"mode: main_session"| MS[Main Session]
+    end
+    
+    subgraph "Subagent"
+        SA[subagent plugin] --> |"spawn"| IS[Isolated Session]
+        IS --> |"LLM call"| LLM[LLM Provider]
+    end
+```
+
+### Subagent Plugin
+
+Spawns isolated sessions for delegated work:
+- No conversation history or memory context
+- Tool: `spawn_subagent` for agent use
+- API: `SubagentProvider.spawn()` for plugin use
+- Extension points: `subagent.before_spawn`, `subagent.after_spawn`
+
+### Cron Plugin
+
+Schedules jobs with two execution modes:
+- `isolated`: Spawns subagent (no context)
+- `main_session`: Injects into main session (full context)
+- Extension points: `cron.before_job`, `cron.after_job`
+
+### Heartbeat Plugin
+
+Convenience wrapper for periodic main session wake-up:
+- Reads `HEARTBEAT.md` for instructions
+- Uses cron internally with `mode: main_session`
+- Supports quiet hours
+
+```yaml
+# Example configuration
+subagent:
+  max_concurrent: 3
+
+cron:
+  jobs:
+    - name: daily-report
+      schedule: "0 9 * * *"
+      mode: isolated
+      prompt: "Generate daily summary"
+
+heartbeat:
+  enabled: true
+  interval_minutes: 15
+  quiet_hours: "23:00-07:00"
+```
+
 ## Directory Structure
 
 ```
@@ -250,7 +311,11 @@ cobot/
 │       ├── security/     # Prompt injection shield
 │       ├── persistence/  # Conversation memory
 │       ├── compaction/   # Context management
-│       └── logger/       # Logging
+│       ├── logger/       # Logging
+│       ├── knowledge/    # Local vector search
+│       ├── subagent/     # Isolated session spawning
+│       ├── cron/         # Scheduled job execution
+│       └── heartbeat/    # Periodic main session wake-up
 ├── tests/                # Test suite
 ├── docs/                 # Documentation
 ├── cobot.yml.example     # Example config

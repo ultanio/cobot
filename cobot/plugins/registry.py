@@ -218,7 +218,6 @@ class PluginRegistry:
 
             try:
                 await plugin.start()
-                print(f"[Registry] Started '{plugin_id}'", file=sys.stderr)
             except Exception as e:
                 print(f"[Registry] Failed to start '{plugin_id}': {e}", file=sys.stderr)
                 raise PluginError(f"Start failed for '{plugin_id}': {e}")
@@ -235,11 +234,20 @@ class PluginRegistry:
 
             try:
                 await plugin.stop()
-                print(f"[Registry] Stopped '{plugin_id}'", file=sys.stderr)
             except Exception as e:
                 print(f"[Registry] Error stopping '{plugin_id}': {e}", file=sys.stderr)
 
         self._started = False
+
+    async def restart_all(self) -> None:
+        """Restart all plugins (for event loop migration).
+
+        Use when plugins were started in a different event loop and need
+        their background tasks recreated in the current loop.
+        """
+        # Force restart even if already started
+        self._started = False
+        await self.start_all()
 
     async def run_hook(self, hook_name: str, ctx: dict) -> dict:
         """DEPRECATED: Use plugin.call_extension_chain() instead.

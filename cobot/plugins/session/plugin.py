@@ -6,8 +6,6 @@ session.* extension points for channel plugins to implement.
 Priority: 10 (after communication, before channels)
 """
 
-import sys
-
 from ..base import Plugin, PluginMeta
 from ..communication import IncomingMessage, OutgoingMessage
 
@@ -51,7 +49,7 @@ class SessionPlugin(Plugin):
 
     async def start(self) -> None:
         """Initialize session orchestrator."""
-        print("[Session] Starting session orchestrator", file=sys.stderr)
+        self.log_info("Starting session orchestrator")
         self._log_channels()
 
     async def stop(self) -> None:
@@ -70,9 +68,9 @@ class SessionPlugin(Plugin):
             channels.append(plugin_id)
 
         if channels:
-            print(f"[Session] Channels: {', '.join(channels)}", file=sys.stderr)
+            self.log_info(f"Channels: {', '.join(channels)}")
         else:
-            print("[Session] No channels registered", file=sys.stderr)
+            self.log_warn("No channels registered")
 
     def poll_all_channels(self) -> list[IncomingMessage]:
         """Poll all channels for new messages.
@@ -101,7 +99,7 @@ class SessionPlugin(Plugin):
                     messages.append(msg)
 
             except Exception as e:
-                print(f"[Session] Error polling {plugin_id}: {e}", file=sys.stderr)
+                self.log_error(f"Error polling {plugin_id}: {e}")
 
         # Sort by timestamp
         messages.sort(key=lambda m: m.timestamp)
@@ -119,7 +117,7 @@ class SessionPlugin(Plugin):
             True if sent successfully
         """
         if not self._registry:
-            print("[Session] No registry available", file=sys.stderr)
+            self.log_error("No registry available")
             return False
 
         channel_type = message.channel_type
@@ -132,12 +130,10 @@ class SessionPlugin(Plugin):
                     method = getattr(plugin, method_name)
                     return method(message)
                 except Exception as e:
-                    print(
-                        f"[Session] Error sending via {plugin_id}: {e}", file=sys.stderr
-                    )
+                    self.log_error(f"Error sending via {plugin_id}: {e}")
                     return False
 
-        print(f"[Session] No channel found for type: {channel_type}", file=sys.stderr)
+        self.log_warn(f"No channel found for type: {channel_type}")
         return False
 
     def typing(self, channel_type: str, channel_id: str) -> None:
@@ -158,9 +154,7 @@ class SessionPlugin(Plugin):
                     method = getattr(plugin, method_name)
                     method(channel_id)
                 except Exception as e:
-                    print(
-                        f"[Session] Error typing on {plugin_id}: {e}", file=sys.stderr
-                    )
+                    self.log_error(f"Error typing on {plugin_id}: {e}")
                 return
 
     def presence(self, status: str) -> None:
@@ -179,10 +173,7 @@ class SessionPlugin(Plugin):
                 method = getattr(plugin, method_name)
                 method(status)
             except Exception as e:
-                print(
-                    f"[Session] Error setting presence on {plugin_id}: {e}",
-                    file=sys.stderr,
-                )
+                self.log_error(f"Error setting presence on {plugin_id}: {e}")
 
     def broadcast(self, content: str, exclude_channel: str = None) -> int:
         """Send message to all channels.
@@ -224,9 +215,7 @@ class SessionPlugin(Plugin):
                     sent += 1
 
             except Exception as e:
-                print(
-                    f"[Session] Error broadcasting to {plugin_id}: {e}", file=sys.stderr
-                )
+                self.log_error(f"Error broadcasting to {plugin_id}: {e}")
 
         return sent
 

@@ -6,7 +6,6 @@ Implements context.system_prompt extension point.
 Priority: 15 (after workspace)
 """
 
-import sys
 from pathlib import Path
 
 from ..base import Plugin, PluginMeta
@@ -50,7 +49,7 @@ class SoulPlugin(Plugin):
         soul_path = self._workspace_path / "SOUL.md"
         if soul_path.exists():
             self._soul = soul_path.read_text()
-            print(f"[Soul] Loaded from {soul_path}", file=sys.stderr)
+            self.log_info(f"Loaded from {soul_path}")
         else:
             self._soul = ""
 

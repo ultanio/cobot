@@ -5,7 +5,6 @@ Capability: communication
 """
 
 import os
-import sys
 import time
 import uuid
 from typing import Optional
@@ -68,16 +67,14 @@ class NostrPlugin(Plugin, CommunicationProvider):
                         identity = json.load(f)
                         self._nsec = identity.get("nsec")
                 except Exception as e:
-                    print(f"[Nostr] Failed to load identity file: {e}", file=sys.stderr)
+                    self.log_error(f"Failed to load identity file: {e}")
 
         self._relays = nostr_config.get("relays", DEFAULT_RELAYS)
 
     async def start(self) -> None:
         """Initialize Nostr keys."""
         if not self._nsec:
-            print(
-                "[Nostr] Warning: NOSTR_NSEC not set, Nostr disabled", file=sys.stderr
-            )
+            self.log_warn("NOSTR_NSEC not set, Nostr disabled")
             return
 
         try:
@@ -87,12 +84,9 @@ class NostrPlugin(Plugin, CommunicationProvider):
                 self._private_key = PrivateKey(bytes.fromhex(self._nsec))
 
             self._public_key = self._private_key.public_key
-            print(
-                f"[Nostr] Identity: {self._public_key.bech32()[:20]}...",
-                file=sys.stderr,
-            )
+            self.log_info(f"Identity: {self._public_key.bech32()[:20]}...")
         except Exception as e:
-            print(f"[Nostr] Failed to initialize: {e}", file=sys.stderr)
+            self.log_error(f"Failed to initialize: {e}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""
@@ -141,7 +135,7 @@ class NostrPlugin(Plugin, CommunicationProvider):
             relay_manager.run_sync()
             time.sleep(2)
         except Exception as e:
-            print(f"[Nostr] Relay sync error: {e}", file=sys.stderr)
+            self.log_error(f"Relay sync error: {e}")
 
         messages = []
 
@@ -170,7 +164,7 @@ class NostrPlugin(Plugin, CommunicationProvider):
                     )
                 )
             except Exception as e:
-                print(f"[Nostr] Failed to decrypt DM: {e}", file=sys.stderr)
+                self.log_error(f"Failed to decrypt DM: {e}")
 
         relay_manager.close_all_relay_connections()
         return messages
@@ -211,7 +205,7 @@ class NostrPlugin(Plugin, CommunicationProvider):
             relay_manager.run_sync()
             time.sleep(2)
         except Exception as e:
-            print(f"[Nostr] Publish error: {e}", file=sys.stderr)
+            self.log_error(f"Publish error: {e}")
 
         relay_manager.close_all_relay_connections()
         return dm_event.id or ""

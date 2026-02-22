@@ -5,7 +5,6 @@ Priority: 01 (very early, provides config to other plugins)
 
 import os
 import re
-import sys
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional, Any
@@ -144,7 +143,11 @@ class ConfigPlugin(Plugin):
     async def start(self) -> None:
         """Config is already loaded in configure()."""
         if self._config:
-            print(f"[Config] Provider: {self._config.provider}", file=sys.stderr)
+            if self._config_path:
+                self.log_info(f"Loaded from: {self._config_path.resolve()}")
+            else:
+                self.log_info("Using defaults (no config file found)")
+            self.log_info(f"Provider: {self._config.provider}")
 
     async def stop(self) -> None:
         """Nothing to clean up."""

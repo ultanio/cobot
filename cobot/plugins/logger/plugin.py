@@ -56,6 +56,16 @@ class LoggerPlugin(Plugin):
             parts.append(json.dumps(extra, default=str))
         print(" ".join(parts), file=sys.stderr, flush=True)
 
+    def log(self, level: str, source: str, msg: str, **extra):
+        """Central logging method called by other plugins."""
+        if not self._should_log(level):
+            return
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        parts = [f"[{ts}]", f"[{level[0].upper()}]", f"[{source}]", msg]
+        if extra:
+            parts.append(json.dumps(extra, default=str))
+        print(" ".join(parts), file=sys.stderr, flush=True)
+
     # --- Extension Point Implementations ---
 
     async def log_message_received(self, ctx: dict) -> dict:

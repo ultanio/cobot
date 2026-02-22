@@ -7,8 +7,6 @@ Defines extension points:
 Priority: 18 (after soul, memory, etc.)
 """
 
-import sys
-
 from ..base import Plugin, PluginMeta
 
 
@@ -35,7 +33,7 @@ class ContextPlugin(Plugin):
 
     async def start(self) -> None:
         """Initialize context builder."""
-        print("[Context] Ready", file=sys.stderr)
+        self.log_info("Ready")
 
     async def stop(self) -> None:
         """Nothing to clean up."""
@@ -63,10 +61,7 @@ class ContextPlugin(Plugin):
                     if contribution:
                         parts.append(contribution)
                 except Exception as e:
-                    print(
-                        f"[Context] Error getting prompt from {plugin_id}: {e}",
-                        file=sys.stderr,
-                    )
+                    self.log_error(f"Error getting prompt from {plugin_id}: {e}")
 
         return "\n\n".join(parts)
 
@@ -90,10 +85,7 @@ class ContextPlugin(Plugin):
                     if contribution:
                         history.extend(contribution)
                 except Exception as e:
-                    print(
-                        f"[Context] Error getting history from {plugin_id}: {e}",
-                        file=sys.stderr,
-                    )
+                    self.log_error(f"Error getting history from {plugin_id}: {e}")
 
         return history
 
