@@ -1,7 +1,7 @@
 """Wallet plugin - Lightning wallet via npub.cash.
 
 Priority: 25 (after config)
-Capability: wallet
+Capabilities: wallet, tools
 """
 
 import os
@@ -10,16 +10,54 @@ from pathlib import Path
 from typing import Optional
 
 from ..base import Plugin, PluginMeta
-from ..interfaces import WalletProvider, WalletError
+from ..interfaces import ToolProvider, WalletProvider, WalletError
 
 
-class WalletPlugin(Plugin, WalletProvider):
+# Tool definitions in OpenAI format
+WALLET_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "wallet_balance",
+            "description": "Check wallet balance in sats",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wallet_pay",
+            "description": "Pay a Lightning invoice",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "invoice": {
+                        "type": "string",
+                        "description": "BOLT11 Lightning invoice",
+                    }
+                },
+                "required": ["invoice"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wallet_receive",
+            "description": "Get Lightning address to receive payments",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+]
+
+
+class WalletPlugin(Plugin, WalletProvider, ToolProvider):
     """Cashu Lightning wallet via npub.cash skill scripts."""
 
     meta = PluginMeta(
         id="wallet",
         version="1.0.0",
-        capabilities=["wallet"],
+        capabilities=["wallet", "tools"],
         dependencies=["config"],
         priority=25,
     )
@@ -28,6 +66,7 @@ class WalletPlugin(Plugin, WalletProvider):
         self._config: dict = {}
         self._scripts_dir: Optional[Path] = None
         self._env: dict = {}
+        self._restart_requested: bool = False
 
     def configure(self, config: dict) -> None:
         """Receive wallet configuration."""
@@ -114,6 +153,59 @@ class WalletPlugin(Plugin, WalletProvider):
                     if "@npub.cash" in part:
                         return part.strip()
         return ""
+
+    # --- ToolProvider Interface ---
+
+    def get_definitions(self) -> list[dict]:
+        """Get tool definitions for LLM."""
+        return WALLET_TOOLS
+
+    def execute(self, tool_name: str, args: dict) -> str:
+        """Execute a wallet tool."""
+        if tool_name == "wallet_balance":
+            return self._tool_balance()
+        elif tool_name == "wallet_pay":
+            return self._tool_pay(args)
+        elif tool_name == "wallet_receive":
+            return self._tool_receive()
+        else:
+            return f"Unknown tool: {tool_name}"
+
+    @property
+    def restart_requested(self) -> bool:
+        """Check if restart was requested."""
+        return self._restart_requested
+
+    # --- Tool Implementations ---
+
+    def _tool_balance(self) -> str:
+        """Execute wallet_balance tool."""
+        try:
+            return f"Balance: {self.get_balance()} sats"
+        except WalletError as e:
+            return f"Error: {e}"
+
+    def _tool_pay(self, args: dict) -> str:
+        """Execute wallet_pay tool."""
+        invoice = args.get("invoice", "")
+        if not invoice:
+            return "Error: invoice is required"
+        try:
+            result = self.pay(invoice)
+            return (
+                "Payment successful"
+                if result.get("success")
+                else f"Failed: {result.get('error')}"
+            )
+        except WalletError as e:
+            return f"Error: {e}"
+
+    def _tool_receive(self) -> str:
+        """Execute wallet_receive tool."""
+        try:
+            return f"Address: {self.get_receive_address()}"
+        except WalletError as e:
+            return f"Error: {e}"
 
 
 # Factory function

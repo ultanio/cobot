@@ -92,39 +92,6 @@ TOOL_DEFINITIONS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "wallet_balance",
-            "description": "Check wallet balance in sats",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "wallet_pay",
-            "description": "Pay a Lightning invoice",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "invoice": {
-                        "type": "string",
-                        "description": "BOLT11 Lightning invoice",
-                    }
-                },
-                "required": ["invoice"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "wallet_receive",
-            "description": "Get Lightning address to receive payments",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
 ]
 
 
@@ -216,9 +183,6 @@ class ToolsPlugin(Plugin, ToolProvider):
             "edit_file": self._edit_file,
             "exec": self._exec,
             "restart_self": self._restart_self,
-            "wallet_balance": self._wallet_balance,
-            "wallet_pay": self._wallet_pay,
-            "wallet_receive": self._wallet_receive,
         }
 
         executor = executors.get(tool_name)
@@ -371,44 +335,6 @@ class ToolsPlugin(Plugin, ToolProvider):
     def _restart_self(self) -> str:
         self._restart_requested = True
         return "Restart requested."
-
-    def _wallet_balance(self) -> str:
-        wallet = self._get_wallet()
-        if not wallet:
-            return "Error: Wallet not available"
-        try:
-            return f"Balance: {wallet.get_balance()} sats"
-        except Exception as e:
-            return f"Error: {e}"
-
-    def _wallet_pay(self, invoice: str) -> str:
-        wallet = self._get_wallet()
-        if not wallet:
-            return "Error: Wallet not available"
-        try:
-            result = wallet.pay(invoice)
-            return (
-                "Payment successful"
-                if result.get("success")
-                else f"Failed: {result.get('error')}"
-            )
-        except Exception as e:
-            return f"Error: {e}"
-
-    def _wallet_receive(self) -> str:
-        wallet = self._get_wallet()
-        if not wallet:
-            return "Error: Wallet not available"
-        try:
-            return f"Address: {wallet.get_receive_address()}"
-        except Exception as e:
-            return f"Error: {e}"
-
-    def _get_wallet(self):
-        """Get wallet plugin from registry."""
-        if self._registry:
-            return self._registry.get_by_capability("wallet")
-        return None
 
 
 # Factory function for plugin discovery

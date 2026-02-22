@@ -14,15 +14,14 @@ class TestToolDefinitions:
     def test_all_tools_have_definitions(self):
         tool_names = [d["function"]["name"] for d in TOOL_DEFINITIONS]
 
+        # Tools plugin provides shell/file tools only
+        # Wallet tools are now in wallet plugin (ToolProvider)
         expected = [
             "read_file",
             "write_file",
             "edit_file",
             "exec",
             "restart_self",
-            "wallet_balance",
-            "wallet_pay",
-            "wallet_receive",
         ]
         for name in expected:
             assert name in tool_names, f"Missing tool: {name}"
