@@ -96,6 +96,7 @@ class LoopPlugin(Plugin):
         version="1.0.0",
         capabilities=["loop"],
         dependencies=["config", "communication"],
+        consumes=["llm", "tools"],
         extension_points=[
             "session.poll_messages",  # Inject messages into the loop (cron uses this)
             "loop.on_message",

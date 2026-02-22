@@ -103,6 +103,7 @@ class ToolsPlugin(Plugin, ToolProvider):
         version="1.0.0",
         capabilities=["tools"],
         dependencies=["config"],
+        consumes=["tools"],
         priority=30,
     )
 

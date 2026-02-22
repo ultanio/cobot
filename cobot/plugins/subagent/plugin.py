@@ -108,6 +108,7 @@ class SubagentPlugin(Plugin, SubagentProvider, ToolProvider):
         version="1.0.0",
         capabilities=["subagent", "tools"],
         dependencies=["config"],
+        consumes=["llm"],
         priority=32,  # After main tools
         extension_points=[
             "subagent.before_spawn",  # Modify task/context before spawn

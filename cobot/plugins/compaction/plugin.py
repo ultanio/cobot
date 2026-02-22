@@ -20,6 +20,7 @@ class CompactionPlugin(Plugin):
         version="1.0.0",
         capabilities=["compaction"],
         dependencies=["config", "persistence"],
+        consumes=["llm"],
         priority=16,
         implements={
             "loop.transform_history": "transform_history",
