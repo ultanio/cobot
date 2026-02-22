@@ -115,6 +115,7 @@ class CronPlugin(Plugin, ToolProvider):
         version="1.0.0",
         capabilities=["cron", "tools"],
         dependencies=["config"],
+        optional_dependencies=["subagent", "communication", "filedrop"],
         priority=40,
         extension_points=[
             "cron.before_job",  # Modify job before execution

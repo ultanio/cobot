@@ -23,8 +23,11 @@ from ..interfaces import LLMProvider, LLMError, ToolProvider
 class AggregatedToolProvider(ToolProvider):
     """Aggregates tools from multiple ToolProvider plugins."""
 
-    def __init__(self, providers: list):
+    def __init__(self, providers: list, log_error=None):
         self._providers = providers
+        self._log_error = log_error or (
+            lambda msg: print(f"[Loop] {msg}", file=sys.stderr)
+        )
         self._tool_map: dict[str, ToolProvider] = {}  # tool_name -> provider
         self._build_tool_map()
 
@@ -37,8 +40,7 @@ class AggregatedToolProvider(ToolProvider):
                     if name and name not in self._tool_map:
                         self._tool_map[name] = provider
             except Exception as e:
-                # Note: Can't use self.log_* here as this is a helper class
-                print(f"[Loop] Error building tool map: {e}", file=sys.stderr)
+                self._log_error(f"Error building tool map: {e}")
 
     def get_definitions(self) -> list[dict]:
         """Get all tool definitions from all providers."""
@@ -52,8 +54,7 @@ class AggregatedToolProvider(ToolProvider):
                         all_tools.append(tool_def)
                         seen_names.add(name)
             except Exception as e:
-                # Note: Can't use self.log_* here as this is a helper class
-                print(f"[Loop] Error getting definitions: {e}", file=sys.stderr)
+                self._log_error(f"Error getting definitions: {e}")
         return all_tools
 
     def execute(self, tool_name: str, args: dict) -> str:
@@ -155,7 +156,7 @@ class LoopPlugin(Plugin):
         if self._registry:
             providers = self._registry.all_with_capability("tools")
             if providers:
-                return AggregatedToolProvider(providers)
+                return AggregatedToolProvider(providers, log_error=self.log_error)
         return None
 
     async def run(self) -> None:

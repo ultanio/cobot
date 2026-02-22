@@ -7,7 +7,6 @@ Priority: 22 (after config, before tools)
 Capabilities: knowledge, tools
 """
 
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -150,24 +149,15 @@ class KnowledgePlugin(Plugin, ToolProvider):
                 model=self._embedding_model,
             )
             if self._embeddings.is_available():
-                print(
-                    f"[Knowledge] Embeddings enabled: {self._embedding_model}",
-                    file=sys.stderr,
-                )
+                self.log_info(f"Embeddings enabled: {self._embedding_model}")
             else:
-                print(
-                    "[Knowledge] Embeddings disabled: Ollama not available",
-                    file=sys.stderr,
-                )
+                self.log_info("Embeddings disabled: Ollama not available")
                 self._embeddings = None
 
         # Initialize search
         self._search = KnowledgeSearch(self._db, self._embeddings)
 
-        print(
-            f"[Knowledge] Database: {self._db_path} ({self._db.count()} entries)",
-            file=sys.stderr,
-        )
+        self.log_info(f"Database: {self._db_path} ({self._db.count()} entries)")
 
     async def stop(self) -> None:
         """Clean up resources."""
