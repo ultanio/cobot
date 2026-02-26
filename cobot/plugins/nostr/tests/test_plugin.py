@@ -1,11 +1,13 @@
 """Tests for Nostr communication plugin."""
 
-import asyncio
-
 import pytest
 
-from ..plugin import NostrPlugin, create_plugin
-from ...interfaces import Message, CommunicationError
+pynostr = pytest.importorskip("pynostr", reason="pynostr not installed")
+
+import asyncio  # noqa: E402
+
+from ..plugin import NostrPlugin, create_plugin  # noqa: E402
+from ...interfaces import Message, CommunicationError  # noqa: E402
 
 
 class TestNostrPlugin:

@@ -1,22 +1,24 @@
 """Tests for TelegramPlugin."""
 
-import asyncio
-import os
-import tempfile
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from datetime import datetime
-from pathlib import Path
 
-from ..plugin import (
+telegram = pytest.importorskip("telegram", reason="python-telegram-bot not installed")
+
+import asyncio  # noqa: E402
+import os  # noqa: E402
+import tempfile  # noqa: E402
+from unittest.mock import Mock, patch, MagicMock  # noqa: E402
+from datetime import datetime  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from ..plugin import (  # noqa: E402
     TelegramPlugin,
     TelegramMessage,
     GroupConfig,
     Message,
-    CommunicationError,
     create_plugin,
 )
-from ...base import PluginMeta
+from ...base import PluginMeta  # noqa: E402
 
 
 # === Plugin Creation Tests ===
