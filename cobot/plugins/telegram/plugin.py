@@ -580,15 +580,17 @@ class TelegramPlugin(Plugin):
         return media_info
 
     def _call_extension(self, point: str, ctx: dict) -> dict:
-        """Call extension point handlers."""
+        """Call extension point handlers registered on this plugin.
+
+        Note: This calls locally registered handlers synchronously.
+        For cross-plugin extension dispatch, use the async
+        BasePlugin.call_extension() method instead.
+        """
         for handler in self._extension_handlers.get(point, []):
             try:
                 handler(ctx)
             except Exception as e:
                 self.log_error(f"Handler error for {point}: {e}")
-
-        if self._registry:
-            return self._registry.call_extension(point, ctx)
         return ctx
 
     # --- Legacy CommunicationProvider Interface ---

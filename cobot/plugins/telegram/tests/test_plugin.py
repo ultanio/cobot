@@ -373,20 +373,21 @@ class TestExtensionHandlers:
         captured = capsys.readouterr()
         assert "Handler error" in captured.err
 
-    def test_call_extension_with_registry(self):
-        """Test calling extension with registry set."""
+    def test_call_extension_returns_ctx(self):
+        """Test _call_extension returns ctx without crashing.
+
+        Note: _call_extension no longer delegates to registry.call_extension()
+        (removed — that method no longer exists on PluginRegistry). It only
+        calls locally registered handlers and returns ctx.
+        """
         plugin = TelegramPlugin()
 
         mock_registry = Mock()
-        mock_registry.call_extension.return_value = {"registry": "called"}
         plugin.set_registry(mock_registry)
 
         result = plugin._call_extension("telegram.on_message", {"test": "data"})
 
-        mock_registry.call_extension.assert_called_once_with(
-            "telegram.on_message", {"test": "data"}
-        )
-        assert result["registry"] == "called"
+        assert result == {"test": "data"}
 
 
 # === Identity Tests ===
