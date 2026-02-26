@@ -199,3 +199,29 @@ class TestCLIEntryPoint:
         assert not hasattr(Cobot, "run_loop_sync"), (
             "Cobot still has removed run_loop_sync() — see #97"
         )
+
+    def test_cli_run_help(self):
+        """'cobot run --help' works (exercises the CLI entry point)."""
+        from click.testing import CliRunner
+        from cobot.cli import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "stdin" in result.output
+
+    def test_cli_run_invokes_run_sync(self):
+        """'cobot run' calls bot.run_sync(), not a stale method (#97)."""
+        import ast
+
+        cli_path = Path(__file__).parent.parent / "cobot" / "cli.py"
+        tree = ast.parse(cli_path.read_text())
+
+        # Find all method calls in the run() function
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Attribute):
+                    assert node.func.attr != "run_loop_sync", (
+                        "cli.py still calls run_loop_sync() — "
+                        "should be run_sync() (see #97)"
+                    )

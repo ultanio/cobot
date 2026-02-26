@@ -177,7 +177,7 @@ def run(
         if stdin:
             bot.run_stdin_sync()
         else:
-            bot.run_loop_sync()
+            bot.run_sync()
     finally:
         remove_pid()
 
