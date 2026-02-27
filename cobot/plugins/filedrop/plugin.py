@@ -31,6 +31,7 @@ class FileDropPlugin(Plugin, CommunicationProvider):
         priority=24,  # Just before nostr
         implements={
             "session.poll_messages": "poll_inbox",
+            "communication.send": "handle_send",
         },
     )
 
@@ -89,6 +90,39 @@ class FileDropPlugin(Plugin, CommunicationProvider):
             "protocol": "filedrop",
         }
 
+    def handle_send(self, message) -> bool:
+        """Handle outgoing filedrop messages (implements communication.send)."""
+        if message.channel_type != "filedrop":
+            return False
+
+        # Extract recipient from sender_id in metadata or channel_id
+        recipient = message.metadata.get("recipient") if message.metadata else None
+        if not recipient:
+            # channel_id might be the inbox path — extract agent name
+            channel_id = message.channel_id or ""
+            if "/" in channel_id:
+                # Path like /olymp/filedrop/Zeus/inbox — extract agent name
+                parts = Path(channel_id).parts
+                try:
+                    idx = parts.index("inbox")
+                    recipient = parts[idx - 1] if idx > 0 else None
+                except (ValueError, IndexError):
+                    pass
+            else:
+                recipient = channel_id
+
+        if not recipient:
+            self.log_error("Cannot send filedrop reply: no recipient found")
+            return False
+
+        self.log_debug(f"Sending filedrop reply to {recipient}")
+        try:
+            self.send(recipient, message.content)
+            return True
+        except Exception as e:
+            self.log_error(f"Failed to send filedrop reply to {recipient}: {e}")
+            return False
+
     def poll_inbox(self) -> list[IncomingMessage]:
         """Poll inbox for new messages (implements session.poll_messages)."""
         if not self._inbox or not self._inbox.exists():
@@ -111,6 +145,8 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                     body += f" Subject: {subject}"
                 body += f"\n\n{content}"
 
+                self.log_debug(f"Polled message from {sender}: {msg_file.name}")
+
                 messages.append(
                     IncomingMessage(
                         id=data.get("id", msg_file.stem),
@@ -132,9 +168,13 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                 processed_dir = self._inbox.parent / "processed"
                 processed_dir.mkdir(exist_ok=True)
                 msg_file.rename(processed_dir / msg_file.name)
+                self.log_debug(f"Moved {msg_file.name} to processed")
 
             except Exception as e:
                 self.log_error(f"Error reading {msg_file}: {e}")
+
+        if messages:
+            self.log_info(f"Polled {len(messages)} new message(s) from inbox")
 
         return messages
 
@@ -218,7 +258,7 @@ class FileDropPlugin(Plugin, CommunicationProvider):
             with open(outbox / f"{msg_id}.json", "w") as f:
                 json.dump(msg_data, f, indent=2)
 
-        self.log_info(f"Sent to {recipient}: {msg_id}")
+        self.log_debug(f"Sent to {recipient}: {msg_id}")
         return msg_id
 
 

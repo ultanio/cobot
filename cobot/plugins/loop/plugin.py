@@ -265,6 +265,9 @@ class LoopPlugin(Plugin):
             return
 
         message = ctx.get("message", msg.content)
+        self.log_debug(
+            f"Handling message from {msg.sender_name} via {msg.channel_type}"
+        )
         response_text = await self._respond(
             message,
             sender=msg.sender_name,
