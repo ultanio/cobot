@@ -112,17 +112,33 @@ clear_inbox() {
 }
 
 # Send a filedrop message to Alpha and return the send timestamp
+# Writes JSON directly to avoid CLI output parsing issues (#156)
 send_message() {
     local subject="$1"
     local content="$2"
-    local before_ts
-    before_ts=$(date +%s)
+    local ts
+    ts=$(date +%s)
+    local msg_id="${ts}_${SENDER}"
+    local target_inbox="/olymp/filedrop/$TARGET/inbox"
 
-    FILEDROP_AGENT="$SENDER" filedrop send "$TARGET" "$subject" "$content" --no-wake 2>/dev/null
-    # Wake separately so we get clean output
+    mkdir -p "$target_inbox"
+
+    cat > "$target_inbox/${msg_id}.json" <<EOF
+{
+  "id": "$msg_id",
+  "from": "$SENDER",
+  "to": "$TARGET",
+  "subject": "$subject",
+  "content": "$content",
+  "timestamp": $ts,
+  "sent_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+
+    # Wake Alpha if possible
     FILEDROP_AGENT="$SENDER" filedrop wake "$TARGET" 2>/dev/null || true
 
-    echo "$before_ts"
+    echo "$ts"
 }
 
 # Poll inbox for a response from Alpha after a given timestamp
