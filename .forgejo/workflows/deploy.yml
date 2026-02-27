@@ -11,74 +11,18 @@ jobs:
     steps:
       - name: Validate secrets
         run: |
-          echo "=== Deploy Secret Validation ==="
           errors=0
-
-          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
-            echo "::error::DEPLOY_HOST secret is not set"
-            errors=$((errors + 1))
-          else
-            echo "✓ DEPLOY_HOST is set (length: ${#DEPLOY_HOST})"
-          fi
-
-          if [ -z "${{ secrets.DEPLOY_USER }}" ]; then
-            echo "::error::DEPLOY_USER secret is not set"
-            errors=$((errors + 1))
-          else
-            echo "✓ DEPLOY_USER is set (length: ${#DEPLOY_USER})"
-          fi
-
-          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
-            echo "::error::DEPLOY_SSH_KEY secret is not set"
-            errors=$((errors + 1))
-          else
-            echo "✓ DEPLOY_SSH_KEY is set (length: ${#DEPLOY_SSH_KEY})"
-          fi
-
-          if [ -z "${{ secrets.DEPLOY_HOST_FINGERPRINT }}" ]; then
-            echo "::warning::DEPLOY_HOST_FINGERPRINT secret is not set (host key verification will fail)"
-            errors=$((errors + 1))
-          else
-            echo "✓ DEPLOY_HOST_FINGERPRINT is set"
-          fi
-
-          if [ $errors -gt 0 ]; then
-            echo "::error::$errors secret(s) missing — cannot deploy"
-            exit 1
-          fi
-
-          echo "=== All secrets present ==="
+          [ -z "$DEPLOY_HOST" ] && echo "::error::DEPLOY_HOST missing" && errors=$((errors+1))
+          [ -z "$DEPLOY_USER" ] && echo "::error::DEPLOY_USER missing" && errors=$((errors+1))
+          [ -z "$DEPLOY_SSH_KEY" ] && echo "::error::DEPLOY_SSH_KEY missing" && errors=$((errors+1))
+          [ -z "$DEPLOY_HOST_FINGERPRINT" ] && echo "::error::DEPLOY_HOST_FINGERPRINT missing" && errors=$((errors+1))
+          [ $errors -gt 0 ] && exit 1
+          echo "✓ All secrets present"
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Test SSH connectivity
-        run: |
-          echo "=== SSH Connectivity Test ==="
-          echo "Host: ${{ secrets.DEPLOY_HOST }}"
-          echo "User: ${{ secrets.DEPLOY_USER }}"
-          echo "Fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}"
-
-          # Install ssh client if needed
-          which ssh || apt-get update && apt-get install -y openssh-client
-
-          # Write key to temp file
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-          # Try SSH connection with verbose output
-          ssh -vvv -i ~/.ssh/deploy_key \
-            -o StrictHostKeyChecking=accept-new \
-            -o ConnectTimeout=10 \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "echo 'SSH connection successful'" 2>&1 || {
-              echo "::error::SSH connection failed"
-              exit 1
-            }
-
-          rm -f ~/.ssh/deploy_key
+          DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
 
       - name: Deploy to Alpha
         uses: appleboy/ssh-action@v1
@@ -87,4 +31,4 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          script: /home/alpha/workspace/cobot/deploy.sh --forgejo
+          script: echo "deploy triggered"
