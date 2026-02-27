@@ -61,3 +61,5 @@ jobs:
         run: |
           pip install build
           python -m build
+
+  # deploy-alpha moved to deploy-alpha.yml
