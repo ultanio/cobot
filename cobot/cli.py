@@ -47,8 +47,13 @@ def read_pid() -> Optional[int]:
         # Check if process exists
         os.kill(pid, 0)
         return pid
-    except (ValueError, ProcessLookupError, PermissionError):
+    except (ValueError, ProcessLookupError):
+        # Stale PID file — clean it up
+        pid_file.unlink(missing_ok=True)
         return None
+    except PermissionError:
+        # Process exists but owned by another user — treat as running
+        return pid
 
 
 def write_pid(pid: int) -> None:

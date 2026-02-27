@@ -66,6 +66,9 @@ class CobotConfig:
     exec_blocklist: list[str] = field(default_factory=list)
     exec_timeout: int = 30
 
+    # Config directory (where cobot.yml lives)
+    config_dir: Path = field(default_factory=lambda: Path.home() / ".cobot")
+
     # Raw config for plugin access
     _raw: dict = field(default_factory=dict)
 
@@ -117,7 +120,9 @@ class CobotConfig:
         """Load config from YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f) or {}
-        return cls.from_dict(data)
+        config = cls.from_dict(data)
+        config.config_dir = path.parent.resolve()
+        return config
 
 
 class ConfigPlugin(Plugin):
