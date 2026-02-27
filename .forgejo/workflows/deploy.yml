@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: python-3.12
-    if: github.repository == 'ultanio/cobot'
     steps:
       - name: Validate secrets
         run: |
@@ -17,18 +16,23 @@ jobs:
           [ -z "$DEPLOY_SSH_KEY" ] && echo "::error::DEPLOY_SSH_KEY missing" && errors=$((errors+1))
           [ -z "$DEPLOY_HOST_FINGERPRINT" ] && echo "::error::DEPLOY_HOST_FINGERPRINT missing" && errors=$((errors+1))
           [ $errors -gt 0 ] && exit 1
-          echo "✓ All secrets present"
+          echo "All secrets present"
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
 
-      - name: Deploy to Alpha
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          script: echo "deploy triggered"
+      - name: Deploy via SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$DEPLOY_HOST $DEPLOY_HOST_FINGERPRINT" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "echo deploy"
+          rm -f ~/.ssh/deploy_key
