@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: python-3.12
     if: github.repository == 'ultanio/cobot'
     steps:
       - name: Validate secrets
