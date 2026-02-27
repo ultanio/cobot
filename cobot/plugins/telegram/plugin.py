@@ -320,12 +320,29 @@ class TelegramPlugin(Plugin):
 
                 # Security: Only process messages from configured groups
                 if chat_id not in self._groups:
-                    chat_name = msg["chat"].get("title", str(chat_id))
-                    self.log_warn(
-                        f"Ignoring message from unconfigured group {chat_id} ({chat_name}): "
-                        f"add group to config to enable processing"
+                    # If pairing plugin is active, allow unknown chats through
+                    # so the pairing plugin can handle authorization
+                    pairing = (
+                        self._registry.get_by_capability("pairing")
+                        if self._registry
+                        else None
                     )
-                    continue
+                    if pairing:
+                        chat_name = msg["chat"].get("title", str(chat_id))
+                        self.log_info(
+                            f"Unknown chat {chat_id} ({chat_name}): "
+                            f"passing through for pairing"
+                        )
+                        self._groups[chat_id] = GroupConfig(
+                            id=chat_id, name=chat_name, enabled=True
+                        )
+                    else:
+                        chat_name = msg["chat"].get("title", str(chat_id))
+                        self.log_warn(
+                            f"Ignoring message from unconfigured group {chat_id} ({chat_name}): "
+                            f"add group to config to enable processing"
+                        )
+                        continue
 
                 group = self._groups[chat_id]
                 if not group.enabled:
