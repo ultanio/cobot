@@ -8,7 +8,10 @@ on:
 
 jobs:
   test:
-    runs-on: python-3.12
+    runs-on: python-${{ matrix.python-version }}
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -40,3 +43,15 @@ jobs:
 
       - name: Format check
         run: ruff format --check cobot/
+
+  build:
+    runs-on: python-3.12
+    needs: [test, lint]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build

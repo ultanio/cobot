@@ -20,12 +20,18 @@ class TestPidFile:
                 mock_path.return_value = Path(f.name)
 
                 write_pid(12345)
-                _ = read_pid()  # May return None if process doesn't exist
 
-                # Just verify the file was written
+                # Verify file content before read_pid (which may delete
+                # the file if the PID doesn't exist on this machine)
                 assert Path(f.name).read_text().strip() == "12345"
 
-                os.unlink(f.name)
+                # read_pid checks os.kill — if PID 12345 doesn't exist,
+                # it cleans up the file and returns None (expected)
+                result = read_pid()
+                assert result is None or result == 12345
+
+                if Path(f.name).exists():
+                    os.unlink(f.name)
 
     def test_read_pid_nonexistent(self):
         with patch("cobot.cli.get_pid_file") as mock_path:

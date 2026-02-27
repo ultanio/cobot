@@ -1,0 +1,25 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: python-3.11
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cobot
+        run: |
+          pip install -e .
+
+      - name: Run E2E tests
+        env:
+          PPQ_API_KEY: ${{ secrets.PPQ_API_KEY }}
+        run: |
+          chmod +x tests/e2e/test_e2e.sh
+          bash tests/e2e/test_e2e.sh
