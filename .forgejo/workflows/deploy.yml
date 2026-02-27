@@ -6,14 +6,18 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    if: github.repository == 'ultanio/cobot'
+    runs-on: python-3.12
     steps:
-      - name: Deploy to Alpha
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          script: /home/alpha/workspace/cobot/deploy.sh --forgejo
+      - name: Deploy via SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_PUBKEY: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$DEPLOY_HOST $DEPLOY_HOST_PUBKEY" > ~/.ssh/known_hosts
+          ssh -v -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" "echo deploy"
+          rm -f ~/.ssh/deploy_key

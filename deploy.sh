@@ -1,50 +1,44 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
-# Deploy script for Cobot (called by CI or manually)
-# Handles root→alpha user switch when invoked via SSH as root.
+REPO_DIR="/home/alpha/workspace/cobot"
+ALPHA_USER="alpha"
 
-COBOT_USER="${COBOT_USER:-alpha}"
-COBOT_DIR="${COBOT_DIR:-/home/${COBOT_USER}/workspace/cobot}"
-SECRETS_ENV="${SECRETS_ENV:-/home/${COBOT_USER}/secrets/cobot.env}"
+echo "=== Deploying Alpha (cobot) ==="
+echo "Source: ${1:-manual}"
+echo "Running as: $(whoami)"
 
-# If running as root, re-exec as the cobot user
+# If running as root (from CI), switch to alpha
 if [ "$(whoami)" = "root" ]; then
-    exec sudo -u "$COBOT_USER" "$0" "$@"
+    exec sudo -u "$ALPHA_USER" bash "$0" "$@"
 fi
 
-cd "$COBOT_DIR"
+cd "$REPO_DIR"
 
-# Fetch and reset to latest main
+# Pull latest from forgejo
 git fetch forgejo main
 git reset --hard forgejo/main
 
-# Load environment if secrets file exists
-if [ -f "$SECRETS_ENV" ]; then
-    set -a
-    # shellcheck source=/dev/null
-    source "$SECRETS_ENV"
-    set +a
+# Install dependencies
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
+    pip install -e . --quiet 2>&1 || echo "⚠️ pip install had issues"
 fi
 
-# Install dependencies
-pip install -e ".[all]" --quiet 2>&1 | tail -3
-
-# Restart cobot
+# Restart service
 if systemctl --user is-active cobot.service &>/dev/null; then
     systemctl --user restart cobot.service
-    echo "✓ Cobot service restarted"
-elif [ -f ~/.cobot/cobot.pid ]; then
-    pid=$(cat ~/.cobot/cobot.pid)
-    if kill -0 "$pid" 2>/dev/null; then
-        kill "$pid"
-        sleep 2
-    fi
-    cd "$COBOT_DIR"
-    nohup cobot run &>/dev/null &
-    echo "✓ Cobot restarted (PID: $!)"
+    echo "✅ Service restarted"
 else
-    cd "$COBOT_DIR"
+    echo "⚠️ cobot.service not active, attempting manual restart"
+    pkill -f "cobot run" || true
+    sleep 1
+    if [ -d ".venv" ]; then
+        source .venv/bin/activate
+    fi
     nohup cobot run &>/dev/null &
-    echo "✓ Cobot started (PID: $!)"
+    echo "✅ Started manually (PID: $!)"
 fi
+
+echo "=== Deploy complete ==="
+# Deploy test 2026-02-27T10:08:00Z
