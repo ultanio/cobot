@@ -8,8 +8,9 @@ echo "=== Deploying Alpha (cobot) ==="
 echo "Source: ${1:-manual}"
 echo "Running as: $(whoami)"
 
-# If running as root (from CI), switch to alpha
+# If running as root (from CI), fix ownership and switch to alpha
 if [ "$(whoami)" = "root" ]; then
+    chown -R "$ALPHA_USER:$ALPHA_USER" "$REPO_DIR"
     exec sudo -u "$ALPHA_USER" bash "$0" "$@"
 fi
 
