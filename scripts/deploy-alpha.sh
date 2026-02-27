@@ -105,6 +105,14 @@ fi
 
 log "Updated: $OLD_VERSION → $NEW_VERSION ($COMMIT_MSG)"
 
+# Copy integration tests to shared location
+if [ -d "$REPO_DIR/tests/integration" ]; then
+    log "Copying integration tests to /olymp/shared/tests/"
+    mkdir -p /olymp/shared/tests
+    cp -a "$REPO_DIR/tests/integration/"* /olymp/shared/tests/
+    chmod +x /olymp/shared/tests/*.sh 2>/dev/null || true
+fi
+
 # Restart service
 if $RESTART; then
     log "Restarting $SERVICE..."
