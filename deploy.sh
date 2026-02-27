@@ -1,78 +1,44 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
-# Deploy script for Cobot (called by CI or manually)
-# Handles root→alpha user switch when invoked via SSH as root.
+REPO_DIR="/home/alpha/workspace/cobot"
+ALPHA_USER="alpha"
 
-COBOT_USER="${COBOT_USER:-alpha}"
-COBOT_DIR="${COBOT_DIR:-/home/${COBOT_USER}/workspace/cobot}"
-COBOT_WORKSPACE="${COBOT_WORKSPACE:-/home/${COBOT_USER}/.cobot/workspace}"
-SECRETS_ENV="${SECRETS_ENV:-/home/${COBOT_USER}/secrets/cobot.env}"
+echo "=== Deploying Alpha (cobot) ==="
+echo "Source: ${1:-manual}"
+echo "Running as: $(whoami)"
 
-# If running as root, re-exec as the cobot user
+# If running as root (from CI), switch to alpha
 if [ "$(whoami)" = "root" ]; then
-    exec sudo -u "$COBOT_USER" "$0" "$@"
+    exec sudo -u "$ALPHA_USER" bash "$0" "$@"
 fi
 
-cd "$COBOT_DIR"
+cd "$REPO_DIR"
 
-# --- Stop existing process(es) first (#139) ---
-# Kill ALL cobot processes to prevent duplicates
-if [ -f ~/.cobot/cobot.pid ]; then
-    pid=$(cat ~/.cobot/cobot.pid)
-    if kill -0 "$pid" 2>/dev/null; then
-        echo "Stopping cobot (PID: $pid)..."
-        kill "$pid" 2>/dev/null || true
-        # Wait for graceful shutdown
-        for i in $(seq 1 10); do
-            kill -0 "$pid" 2>/dev/null || break
-            sleep 1
-        done
-        # Force kill if still running
-        if kill -0 "$pid" 2>/dev/null; then
-            kill -9 "$pid" 2>/dev/null || true
-        fi
-    fi
-    rm -f ~/.cobot/cobot.pid
-fi
-
-# Also kill any stray cobot processes (e.g. root-owned duplicates)
-pkill -f "cobot run" 2>/dev/null || true
-sleep 1
-
-# Fetch and reset to latest main
+# Pull latest from forgejo
 git fetch forgejo main
 git reset --hard forgejo/main
 
-# --- Deploy workspace context files (#141) ---
-if [ -d "$COBOT_DIR/workspace" ]; then
-    mkdir -p "$COBOT_WORKSPACE"
-    for f in "$COBOT_DIR"/workspace/*.md; do
-        [ -f "$f" ] || continue
-        basename=$(basename "$f")
-        # Skip README.md — it's repo documentation, not agent context
-        [ "$basename" = "README.md" ] && continue
-        cp "$f" "$COBOT_WORKSPACE/$basename"
-    done
-    echo "✓ Workspace context files deployed to $COBOT_WORKSPACE"
-fi
-
-# Load environment if secrets file exists
-if [ -f "$SECRETS_ENV" ]; then
-    set -a
-    # shellcheck source=/dev/null
-    source "$SECRETS_ENV"
-    set +a
-fi
-
 # Install dependencies
-pip install -e ".[all]" --quiet 2>&1 | tail -3
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
+    pip install -e . --quiet 2>&1 || echo "⚠️ pip install had issues"
+fi
 
-# Start cobot (single instance)
+# Restart service
 if systemctl --user is-active cobot.service &>/dev/null; then
     systemctl --user restart cobot.service
-    echo "✓ Cobot service restarted"
+    echo "✅ Service restarted"
 else
+    echo "⚠️ cobot.service not active, attempting manual restart"
+    pkill -f "cobot run" || true
+    sleep 1
+    if [ -d ".venv" ]; then
+        source .venv/bin/activate
+    fi
     nohup cobot run &>/dev/null &
-    echo "✓ Cobot started (PID: $!)"
+    echo "✅ Started manually (PID: $!)"
 fi
+
+echo "=== Deploy complete ==="
+# Deploy test 2026-02-27T10:08:00Z

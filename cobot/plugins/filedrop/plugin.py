@@ -16,6 +16,7 @@ from typing import Optional
 from datetime import datetime
 
 from ..base import Plugin, PluginMeta
+from ..communication import IncomingMessage
 from ..interfaces import CommunicationProvider, Message, CommunicationError
 
 
@@ -28,6 +29,9 @@ class FileDropPlugin(Plugin, CommunicationProvider):
         capabilities=["communication"],
         dependencies=["config"],
         priority=24,  # Just before nostr
+        implements={
+            "session.poll_messages": "poll_inbox",
+        },
     )
 
     def __init__(self):
@@ -85,13 +89,61 @@ class FileDropPlugin(Plugin, CommunicationProvider):
             "protocol": "filedrop",
         }
 
+    def poll_inbox(self) -> list[IncomingMessage]:
+        """Poll inbox for new messages (implements session.poll_messages)."""
+        if not self._inbox or not self._inbox.exists():
+            return []
+
+        messages = []
+        for msg_file in sorted(self._inbox.glob("*.json")):
+            if msg_file.name in self._processed:
+                continue
+
+            try:
+                with open(msg_file) as f:
+                    data = json.load(f)
+
+                sender = data.get("from", "unknown")
+                subject = data.get("subject", "")
+                content = data.get("content", "")
+                body = f"[FileDrop from {sender}]"
+                if subject:
+                    body += f" Subject: {subject}"
+                body += f"\n\n{content}"
+
+                messages.append(
+                    IncomingMessage(
+                        id=data.get("id", msg_file.stem),
+                        channel_type="filedrop",
+                        channel_id=str(self._inbox),
+                        sender_id=sender,
+                        sender_name=sender,
+                        content=body,
+                        timestamp=datetime.fromtimestamp(
+                            data.get("timestamp", msg_file.stat().st_mtime)
+                        ),
+                        metadata={"filedrop_file": msg_file.name},
+                    )
+                )
+
+                self._processed.add(msg_file.name)
+
+                # Move to processed folder
+                processed_dir = self._inbox.parent / "processed"
+                processed_dir.mkdir(exist_ok=True)
+                msg_file.rename(processed_dir / msg_file.name)
+
+            except Exception as e:
+                self.log_error(f"Error reading {msg_file}: {e}")
+
+        return messages
+
     def receive(self, since_minutes: int = 5) -> list[Message]:
         """Check inbox for new messages."""
         if not self._inbox or not self._inbox.exists():
             return []
 
         messages = []
-        since_ts = time.time() - (since_minutes * 60)
 
         for msg_file in sorted(self._inbox.glob("*.json")):
             # Skip already processed
@@ -99,10 +151,6 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                 continue
 
             try:
-                # Check file age
-                if msg_file.stat().st_mtime < since_ts:
-                    continue
-
                 with open(msg_file) as f:
                     data = json.load(f)
 
