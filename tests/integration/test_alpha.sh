@@ -136,7 +136,7 @@ send_message() {
 EOF
 
     # Wake Alpha if possible
-    FILEDROP_AGENT="$SENDER" filedrop wake "$TARGET" 2>/dev/null || true
+    FILEDROP_AGENT="$SENDER" filedrop wake "$TARGET" >/dev/null 2>&1 || true
 
     echo "$ts"
 }
