@@ -295,6 +295,7 @@ class LoopPlugin(Plugin):
                     channel_id=msg.channel_id,
                     content=response_text,
                     reply_to=msg.id,
+                    metadata={"recipient": msg.sender_id},
                 )
             )
             if success:
