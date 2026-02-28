@@ -160,22 +160,28 @@ class TestPersistencePlugin:
     async def test_conversation_flow(self, plugin):
         """Test a full conversation flow with multiple turns."""
         # Turn 1: User sends message
-        await plugin.on_message_received({
-            "sender": "alice",
-            "message": "What is 2+2?",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "alice",
+                "message": "What is 2+2?",
+            }
+        )
 
         # Turn 1: Assistant responds
-        await plugin.on_after_send({
-            "recipient": "alice",
-            "text": "2+2 equals 4.",
-        })
+        await plugin.on_after_send(
+            {
+                "recipient": "alice",
+                "text": "2+2 equals 4.",
+            }
+        )
 
         # Turn 2: User sends another message
-        await plugin.on_message_received({
-            "sender": "alice",
-            "message": "And 3+3?",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "alice",
+                "message": "And 3+3?",
+            }
+        )
 
         # Check conversation state
         conv = plugin._get_conversation("alice")
@@ -240,11 +246,15 @@ class TestPersistencePlugin:
         # Write directly to file
         path = plugin._get_path("loaded_user")
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({
-            "messages": [
-                {"role": "user", "content": "Old message", "timestamp": 123}
-            ]
-        }))
+        path.write_text(
+            json.dumps(
+                {
+                    "messages": [
+                        {"role": "user", "content": "Old message", "timestamp": 123}
+                    ]
+                }
+            )
+        )
 
         # Load via plugin
         conv = plugin._get_conversation("loaded_user")
@@ -268,20 +278,26 @@ class TestStdinModePersistence:
     async def test_stdin_peer_conversation(self, plugin):
         """Test that stdin messages are tracked under 'stdin' peer."""
         # Simulate stdin mode messages
-        await plugin.on_message_received({
-            "sender": "stdin",
-            "message": "Remember this: 42",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "stdin",
+                "message": "Remember this: 42",
+            }
+        )
 
-        await plugin.on_after_send({
-            "recipient": "stdin",
-            "text": "I'll remember that the number is 42.",
-        })
+        await plugin.on_after_send(
+            {
+                "recipient": "stdin",
+                "text": "I'll remember that the number is 42.",
+            }
+        )
 
-        await plugin.on_message_received({
-            "sender": "stdin",
-            "message": "What number?",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "stdin",
+                "message": "What number?",
+            }
+        )
 
         # Check history injection
         ctx = {
@@ -304,48 +320,58 @@ class TestStdinModePersistence:
     @pytest.mark.asyncio
     async def test_remember_numbers_scenario(self, plugin):
         """Test the 'remember these numbers' scenario from stdin mode.
-        
+
         This tests the exact flow that was broken: user tells agent to
         remember a series of numbers, then asks what they were.
         """
         # User: I'll tell you some numbers
-        await plugin.on_message_received({
-            "sender": "stdin",
-            "message": "I'll tell you some numbers. Please remember them.",
-        })
-        await plugin.on_after_send({
-            "recipient": "stdin",
-            "text": "Sure, go ahead! I'll remember the numbers you share.",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "stdin",
+                "message": "I'll tell you some numbers. Please remember them.",
+            }
+        )
+        await plugin.on_after_send(
+            {
+                "recipient": "stdin",
+                "text": "Sure, go ahead! I'll remember the numbers you share.",
+            }
+        )
 
         # User tells numbers one by one
         numbers = ["1", "2", "3", "7", "8", "9"]
         for num in numbers:
-            await plugin.on_message_received({
-                "sender": "stdin",
-                "message": num,
-            })
-            await plugin.on_after_send({
-                "recipient": "stdin",
-                "text": f"Got it, noted {num}. What's next?",
-            })
+            await plugin.on_message_received(
+                {
+                    "sender": "stdin",
+                    "message": num,
+                }
+            )
+            await plugin.on_after_send(
+                {
+                    "recipient": "stdin",
+                    "text": f"Got it, noted {num}. What's next?",
+                }
+            )
 
         # User asks what the numbers were
-        await plugin.on_message_received({
-            "sender": "stdin",
-            "message": "What are the numbers?",
-        })
+        await plugin.on_message_received(
+            {
+                "sender": "stdin",
+                "message": "What are the numbers?",
+            }
+        )
 
         # Verify history contains all numbers
         conv = plugin._get_conversation("stdin")
         messages = conv.get("messages", [])
-        
+
         # Should have: intro + response + (6 numbers * 2) + final question = 15 messages
         assert len(messages) == 15
 
         # Extract all user messages
         user_messages = [m["content"] for m in messages if m["role"] == "user"]
-        
+
         # All numbers should be in the conversation
         for num in numbers:
             assert num in user_messages

@@ -1,7 +1,5 @@
 """Tests for plugin discovery — graceful handling of missing deps."""
 
-from pathlib import Path
-
 from cobot.plugins import discover_plugins
 
 

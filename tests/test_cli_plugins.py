@@ -16,9 +16,10 @@ class TestRegisterCommands:
         rather than inheriting from the base class.
         """
         # register_commands should NOT be on base Plugin
-        assert not hasattr(Plugin, "register_commands") or Plugin.__dict__.get(
-            "register_commands"
-        ) is None
+        assert (
+            not hasattr(Plugin, "register_commands")
+            or Plugin.__dict__.get("register_commands") is None
+        )
 
     def test_plugin_can_add_command(self):
         """Test that a plugin can add a CLI command."""

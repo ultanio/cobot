@@ -87,7 +87,9 @@ def mock_registry():
     registry.list_plugins.return_value = []
     registry.stop_all = AsyncMock()
     registry.run_hook = AsyncMock(side_effect=lambda hook, ctx: ctx)
-    registry.get_implementations = Mock(return_value=[])  # No extension point implementations
+    registry.get_implementations = Mock(
+        return_value=[]
+    )  # No extension point implementations
 
     return registry
 
@@ -461,7 +463,8 @@ class TestLoopRun:
 
         # Should have called on_error for the connection failure
         error_calls = [
-            call for call in loop.call_extension_chain.call_args_list
+            call
+            for call in loop.call_extension_chain.call_args_list
             if call[0][0] == "loop.on_error"
         ]
         assert len(error_calls) >= 1
@@ -595,7 +598,8 @@ class TestLoopErrorHandling:
 
         # Should have called on_error extension
         error_calls = [
-            call for call in loop.call_extension_chain.call_args_list
+            call
+            for call in loop.call_extension_chain.call_args_list
             if call[0][0] == "loop.on_error"
         ]
         assert len(error_calls) == 1
@@ -619,6 +623,7 @@ class TestLoopDedupTrimming:
     def test_dedup_trims_at_threshold(self, mock_registry):
         """Should trim processed events OrderedDict when it exceeds 1000 (CB-014)."""
         from collections import OrderedDict
+
         loop = _make_loop(mock_registry)
         asyncio.run(loop.start())
 

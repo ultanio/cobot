@@ -731,16 +731,16 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
                 type=click.Choice(["update", "overwrite", "cancel"]),
                 default="update",
             )
-        if choice == "cancel":
-            click.echo("Aborted.")
-            return
-        if choice == "update":
-            try:
-                with open(config_path) as f:
-                    existing_config = yaml.safe_load(f) or {}
-                click.echo("  Using existing values as defaults.\n")
-            except Exception:
-                existing_config = {}
+            if choice == "cancel":
+                click.echo("Aborted.")
+                return
+            if choice == "update":
+                try:
+                    with open(config_path) as f:
+                        existing_config = yaml.safe_load(f) or {}
+                    click.echo("  Using existing values as defaults.\n")
+                except Exception:
+                    existing_config = {}
 
     click.echo("\n🤖 Cobot Setup Wizard\n")
 

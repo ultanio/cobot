@@ -26,12 +26,14 @@ class TestSubagentPlugin:
     def test_configure_custom(self):
         """Test custom configuration."""
         plugin = SubagentPlugin()
-        plugin.configure({
-            "subagent": {
-                "max_concurrent": 5,
-                "default_timeout_seconds": 600,
+        plugin.configure(
+            {
+                "subagent": {
+                    "max_concurrent": 5,
+                    "default_timeout_seconds": 600,
+                }
             }
-        })
+        )
         assert plugin._max_concurrent == 5
         assert plugin._default_timeout == 600
 
@@ -94,18 +96,20 @@ class TestCronPlugin:
     def test_configure_jobs(self):
         """Test job configuration from config."""
         plugin = CronPlugin()
-        plugin.configure({
-            "cron": {
-                "jobs": [
-                    {
-                        "name": "test-job",
-                        "schedule": "15m",
-                        "mode": "isolated",
-                        "prompt": "Do something",
-                    }
-                ]
+        plugin.configure(
+            {
+                "cron": {
+                    "jobs": [
+                        {
+                            "name": "test-job",
+                            "schedule": "15m",
+                            "mode": "isolated",
+                            "prompt": "Do something",
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         assert "test-job" in plugin._jobs
         job = plugin._jobs["test-job"]
@@ -115,12 +119,14 @@ class TestCronPlugin:
 
     def test_add_job(self, plugin):
         """Test dynamic job addition."""
-        name = plugin.add_job({
-            "name": "dynamic",
-            "schedule": "30m",
-            "mode": "main_session",
-            "prompt": "Check things",
-        })
+        name = plugin.add_job(
+            {
+                "name": "dynamic",
+                "schedule": "30m",
+                "mode": "main_session",
+                "prompt": "Check things",
+            }
+        )
 
         assert name == "dynamic"
         assert "dynamic" in plugin._jobs
@@ -142,6 +148,7 @@ class TestCronPlugin:
         assert job.next_run is not None
         # Should be ~15 minutes from now (±1 second tolerance)
         import time
+
         expected = time.time() + 900
         assert abs(job.next_run - expected) < 2
 
@@ -151,6 +158,7 @@ class TestCronPlugin:
         plugin._calculate_next_run(job)
 
         import time
+
         expected = time.time() + 7200
         assert abs(job.next_run - expected) < 2
 
@@ -160,6 +168,7 @@ class TestCronPlugin:
         plugin._calculate_next_run(job)
 
         import time
+
         expected = time.time() + 60
         assert abs(job.next_run - expected) < 2
 
@@ -169,12 +178,15 @@ class TestCronPlugin:
         plugin._calculate_next_run(job)
 
         import time
+
         expected = time.time() + 300
         assert abs(job.next_run - expected) < 2
 
     def test_quiet_hours_overnight(self, plugin):
         """Test quiet hours detection for overnight range."""
-        job = CronJob(name="test", schedule="15m", prompt="test", quiet_hours="23:00-07:00")
+        job = CronJob(
+            name="test", schedule="15m", prompt="test", quiet_hours="23:00-07:00"
+        )
 
         # This is a tricky test since it depends on current time
         # Just verify the method doesn't crash
@@ -183,7 +195,9 @@ class TestCronPlugin:
 
     def test_quiet_hours_daytime(self, plugin):
         """Test quiet hours detection for daytime range."""
-        job = CronJob(name="test", schedule="15m", prompt="test", quiet_hours="12:00-13:00")
+        job = CronJob(
+            name="test", schedule="15m", prompt="test", quiet_hours="12:00-13:00"
+        )
         result = plugin._in_quiet_hours(job)
         assert isinstance(result, bool)
 
@@ -204,23 +218,29 @@ class TestCronPlugin:
 
     def test_tool_add_job(self, plugin):
         """Test cron_add_job tool."""
-        result = plugin.execute("cron_add_job", {
-            "name": "test-job",
-            "schedule": "30m",
-            "prompt": "Do something",
-            "mode": "isolated",
-        })
+        result = plugin.execute(
+            "cron_add_job",
+            {
+                "name": "test-job",
+                "schedule": "30m",
+                "prompt": "Do something",
+                "mode": "isolated",
+            },
+        )
         assert "added" in result
         assert "test-job" in plugin._jobs
 
     def test_tool_add_job_duplicate(self, plugin):
         """Test adding duplicate job."""
         plugin.add_job({"name": "existing", "schedule": "1h", "prompt": "x"})
-        result = plugin.execute("cron_add_job", {
-            "name": "existing",
-            "schedule": "30m",
-            "prompt": "y",
-        })
+        result = plugin.execute(
+            "cron_add_job",
+            {
+                "name": "existing",
+                "schedule": "30m",
+                "prompt": "y",
+            },
+        )
         assert "already exists" in result
 
     def test_tool_remove_job(self, plugin):
@@ -240,7 +260,14 @@ class TestCronPlugin:
     def test_tool_list_jobs(self, plugin):
         """Test cron_list_jobs tool."""
         plugin.add_job({"name": "job1", "schedule": "15m", "prompt": "Task 1"})
-        plugin.add_job({"name": "job2", "schedule": "1h", "prompt": "Task 2", "mode": "main_session"})
+        plugin.add_job(
+            {
+                "name": "job2",
+                "schedule": "1h",
+                "prompt": "Task 2",
+                "mode": "main_session",
+            }
+        )
         result = plugin.execute("cron_list_jobs", {})
         assert "job1" in result
         assert "job2" in result
@@ -264,14 +291,16 @@ class TestHeartbeatPlugin:
     def test_configure_enabled(self):
         """Test enabling heartbeat."""
         plugin = HeartbeatPlugin()
-        plugin.configure({
-            "heartbeat": {
-                "enabled": True,
-                "interval_minutes": 30,
-                "prompt_file": "custom.md",
-                "quiet_hours": "22:00-08:00",
+        plugin.configure(
+            {
+                "heartbeat": {
+                    "enabled": True,
+                    "interval_minutes": 30,
+                    "prompt_file": "custom.md",
+                    "quiet_hours": "22:00-08:00",
+                }
             }
-        })
+        )
 
         assert plugin._enabled is True
         assert plugin._interval_minutes == 30
@@ -415,15 +444,18 @@ class TestCronLoopIntegration:
         plugin.configure({})
 
         # Add a main_session job that's due
-        plugin.add_job({
-            "name": "test-main",
-            "schedule": "1m",
-            "mode": "main_session",
-            "prompt": "Test prompt",
-        })
+        plugin.add_job(
+            {
+                "name": "test-main",
+                "schedule": "1m",
+                "mode": "main_session",
+                "prompt": "Test prompt",
+            }
+        )
 
         # Force job to be due
         import time
+
         plugin._jobs["test-main"].next_run = time.time() - 1
 
         # Poll should return messages
@@ -439,15 +471,18 @@ class TestCronLoopIntegration:
         plugin.configure({})
 
         # Add an isolated job
-        plugin.add_job({
-            "name": "test-isolated",
-            "schedule": "1m",
-            "mode": "isolated",
-            "prompt": "Isolated prompt",
-        })
+        plugin.add_job(
+            {
+                "name": "test-isolated",
+                "schedule": "1m",
+                "mode": "isolated",
+                "prompt": "Isolated prompt",
+            }
+        )
 
         # Force job to be due
         import time
+
         plugin._jobs["test-isolated"].next_run = time.time() - 1
 
         # Poll should return empty (isolated jobs handled by scheduler)
@@ -460,16 +495,19 @@ class TestCronLoopIntegration:
         plugin.configure({})
 
         # Add job with 24h quiet hours (always quiet)
-        plugin.add_job({
-            "name": "test-quiet",
-            "schedule": "1m",
-            "mode": "main_session",
-            "prompt": "Should not fire",
-            "quiet_hours": "00:00-23:59",
-        })
+        plugin.add_job(
+            {
+                "name": "test-quiet",
+                "schedule": "1m",
+                "mode": "main_session",
+                "prompt": "Should not fire",
+                "quiet_hours": "00:00-23:59",
+            }
+        )
 
         # Force job to be due
         import time
+
         plugin._jobs["test-quiet"].next_run = time.time() - 1
 
         # Poll should return empty due to quiet hours
