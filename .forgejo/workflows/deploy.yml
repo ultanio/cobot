@@ -8,35 +8,32 @@ jobs:
   deploy:
     runs-on: python-3.12
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup SSH
+      - name: Deploy to Alpha via SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST_PUBKEY: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
         run: |
+          set -euo pipefail
+
+          # Validate secrets
+          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_HOST_PUBKEY; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing secret: $var"
+              exit 1
+            fi
+          done
+
+          # Setup SSH
           mkdir -p ~/.ssh
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "$DEPLOY_HOST $DEPLOY_HOST_PUBKEY" > ~/.ssh/known_hosts
+          echo "$DEPLOY_HOST $DEPLOY_HOST_PUBKEY" >> ~/.ssh/known_hosts
 
-      - name: Sync deploy script to Alpha
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          scp -i ~/.ssh/deploy_key scripts/deploy-alpha.sh "$DEPLOY_USER@$DEPLOY_HOST:~/workspace/cobot/scripts/deploy-alpha.sh"
+          # Deploy (script does git pull + pip install + restart)
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash ~/workspace/cobot/scripts/deploy-alpha.sh forgejo"
 
-      - name: Deploy
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" "bash ~/workspace/cobot/scripts/deploy-alpha.sh forgejo"
-
-      - name: Cleanup
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
+          rm -f ~/.ssh/deploy_key
