@@ -25,6 +25,7 @@ class WorkspacePlugin(Plugin):
         capabilities=["workspace"],
         dependencies=["config"],
         priority=5,  # Load very early
+        implements={},
     )
 
     def __init__(self):
@@ -38,8 +39,14 @@ class WorkspacePlugin(Plugin):
         # Priority 2: Environment variable
         env_workspace = os.environ.get("COBOT_WORKSPACE")
 
-        # Priority 3: Config file
-        config_workspace = config.get("workspace")
+        # Priority 3: Config file (supports both flat string and nested dict)
+        raw_workspace = config.get("workspace")
+        if isinstance(raw_workspace, dict):
+            config_workspace = raw_workspace.get("location")
+        elif isinstance(raw_workspace, str):
+            config_workspace = raw_workspace
+        else:
+            config_workspace = None
 
         # Priority 4: Default
         default_workspace = Path.home() / ".cobot" / "workspace"

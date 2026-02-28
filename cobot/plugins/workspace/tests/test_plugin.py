@@ -90,3 +90,23 @@ class TestWorkspacePlugin:
 
         expected = Path.home() / ".cobot" / "workspace"
         assert plugin.get_path() == expected
+
+    def test_workspace_nested_config(self):
+        """Should support workspace.location nested config."""
+        plugin = create_plugin()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin.configure({"workspace": {"location": tmpdir}})
+            asyncio.run(plugin.start())
+
+            assert plugin.get_path() == Path(tmpdir)
+
+    def test_workspace_flat_string_backward_compat(self):
+        """Should still support flat string workspace config."""
+        plugin = create_plugin()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin.configure({"workspace": tmpdir})
+            asyncio.run(plugin.start())
+
+            assert plugin.get_path() == Path(tmpdir)

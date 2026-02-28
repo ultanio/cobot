@@ -770,6 +770,18 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
         name = click.prompt("Agent name", default=config["identity"]["name"])
         config["identity"]["name"] = name
 
+        # Workspace
+        click.echo("\n📂 Workspace\n")
+        existing_workspace = existing_config.get("workspace") or {}
+        if isinstance(existing_workspace, str):
+            default_ws = existing_workspace
+        elif isinstance(existing_workspace, dict):
+            default_ws = existing_workspace.get("location", "~/.cobot/workspace")
+        else:
+            default_ws = "~/.cobot/workspace"
+        workspace_location = click.prompt("Workspace directory", default=default_ws)
+        config["workspace"] = {"location": workspace_location}
+
         # Provider
         click.echo("\n🧠 LLM Provider\n")
         provider = click.prompt(
