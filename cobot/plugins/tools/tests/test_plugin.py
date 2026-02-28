@@ -78,6 +78,11 @@ class TestToolsPluginConfig:
         plugin.configure({"exec": {}})
         assert plugin._exec_enabled is True
 
+    def test_configure_workspace_path(self):
+        plugin = create_plugin()
+        plugin.configure({"_workspace_path": "/tmp/test-workspace"})
+        assert plugin._base_dir == Path("/tmp/test-workspace")
+
 
 class TestToolsPluginReadFile:
     """Test read_file tool."""
@@ -249,6 +254,13 @@ class TestToolsPluginExec:
         result = plugin.execute("exec", {"command": "sleep 10"})
         assert "Error" in result
         assert "timed out" in result.lower()
+
+    def test_exec_runs_in_workspace_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin = create_plugin()
+            plugin.configure({"_workspace_path": tmpdir})
+            result = plugin.execute("exec", {"command": "pwd"})
+            assert tmpdir in result
 
 
 class TestToolsPluginRestart:

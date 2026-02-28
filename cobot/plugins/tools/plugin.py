@@ -138,10 +138,24 @@ class ToolsPlugin(Plugin, ToolProvider):
         self._exec_blocklist = exec_config.get("blocklist", [])
         self._exec_timeout = exec_config.get("timeout", 30)
 
+        # Can be passed directly for testing
+        if "_workspace_path" in config:
+            self._base_dir = Path(config["_workspace_path"])
+
     async def start(self) -> None:
         """Tools plugin is ready."""
+        # Try to get workspace from registry if available
+        if self._registry:
+            try:
+                workspace = self._registry.get_plugin("workspace")
+                if workspace:
+                    self._base_dir = workspace.get_path()
+            except Exception:
+                pass
+
         self.log_info(
-            f"Initialized, exec={'enabled' if self._exec_enabled else 'disabled'}"
+            f"Initialized, exec={'enabled' if self._exec_enabled else 'disabled'}, "
+            f"base_dir={self._base_dir}"
         )
 
     async def stop(self) -> None:
@@ -317,6 +331,7 @@ class ToolsPlugin(Plugin, ToolProvider):
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                cwd=self._base_dir,
                 env=os.environ.copy(),
             )
 
