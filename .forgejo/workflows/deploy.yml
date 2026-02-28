@@ -8,7 +8,6 @@ jobs:
   deploy:
     runs-on: python-3.12
     steps:
-      - uses: actions/checkout@v4
       - name: Deploy to Alpha via SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -32,11 +31,8 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           echo "$DEPLOY_HOST $DEPLOY_HOST_PUBKEY" >> ~/.ssh/known_hosts
 
-          # Sync deploy script to ~/bin, then run it
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            scripts/deploy-alpha.sh "$DEPLOY_USER@$DEPLOY_HOST:~/bin/deploy-cobot.sh"
+          # SSH triggers forced command (deploy script) via authorized_keys
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "chmod +x ~/bin/deploy-cobot.sh && bash ~/bin/deploy-cobot.sh forgejo"
+            "$DEPLOY_USER@$DEPLOY_HOST"
 
           rm -f ~/.ssh/deploy_key
