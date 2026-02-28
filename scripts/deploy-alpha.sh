@@ -16,8 +16,8 @@
 # Usage: deploy-alpha.sh [forgejo|origin] [--no-restart]
 set -euo pipefail
 
-REPO_DIR="/home/alpha/workspace/cobot"
-SERVICE="cobot-alpha"
+REPO_DIR="${COBOT_REPO_DIR:-/home/alpha/workspace/cobot}"
+SERVICE="${COBOT_SERVICE:-cobot}"
 REMOTE="forgejo"
 RESTART=true
 SKIP_PULL=false
@@ -129,15 +129,15 @@ fi
 # Restart service
 if $RESTART; then
     log "Restarting $SERVICE..."
-    systemctl restart "$SERVICE"
+    systemctl --user restart "$SERVICE"
     sleep 3
 
-    if systemctl is-active --quiet "$SERVICE"; then
+    if systemctl --user is-active --quiet "$SERVICE"; then
         log "✅ $SERVICE is running"
         log_result "SUCCESS" "$NEW_VERSION" "$OLD_VERSION → $NEW_VERSION: $COMMIT_MSG"
     else
         log "❌ $SERVICE failed to start!"
-        journalctl -u "$SERVICE" -n 20 --no-pager 2>&1 | sed 's/^/  /'
+        journalctl --user -u "$SERVICE" -n 20 --no-pager 2>&1 | sed 's/^/  /'
         log_result "FAILED" "$NEW_VERSION" "Service failed to start after update to $NEW_VERSION"
         exit 1
     fi
