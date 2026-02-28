@@ -720,22 +720,42 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
     else:
         config_path = Path("cobot.yml")
 
-    if config_path.exists() and not non_interactive:
-        if not click.confirm(f"{config_path} already exists. Overwrite?"):
+    # Load existing config as defaults if present
+    existing_config = {}
+    if config_path.exists():
+        if non_interactive:
+            pass  # -y implies intent to overwrite
+        else:
+            choice = click.prompt(
+                f"\n{config_path} already exists",
+                type=click.Choice(["update", "overwrite", "cancel"]),
+                default="update",
+            )
+        if choice == "cancel":
             click.echo("Aborted.")
             return
+        if choice == "update":
+            try:
+                with open(config_path) as f:
+                    existing_config = yaml.safe_load(f) or {}
+                click.echo("  Using existing values as defaults.\n")
+            except Exception:
+                existing_config = {}
 
     click.echo("\n🤖 Cobot Setup Wizard\n")
 
     # --- Core Configuration (always present) ---
-
+    # Safely extract defaults from existing config
+    existing_identity = existing_config.get("identity") or {}
+    if not isinstance(existing_identity, dict):
+        existing_identity = {}
     config = {
-        "provider": "ppq",
-        "identity": {"name": "MyAgent"},
+        "provider": existing_config.get("provider", "ppq"),
+        "identity": {"name": existing_identity.get("name", "MyAgent")},
     }
 
     if non_interactive:
-        # Use defaults for core config
+        # Non-interactive: overwrite config (implies intent)
         config["ppq"] = {
             "api_base": "https://api.ppq.ai/v1",
             # api_key from PPQ_API_KEY env var
@@ -747,13 +767,13 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
 
         # Identity
         click.echo("📛 Identity\n")
-        name = click.prompt("Agent name", default="MyAgent")
+        name = click.prompt("Agent name", default=config["identity"]["name"])
         config["identity"]["name"] = name
 
         # Provider
         click.echo("\n🧠 LLM Provider\n")
         provider = click.prompt(
-            "Provider", type=click.Choice(["ppq", "ollama"]), default="ppq"
+            "Provider", type=click.Choice(["ppq", "ollama"]), default=config["provider"]
         )
         config["provider"] = provider
 
@@ -829,6 +849,12 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
 
                         if click.confirm(prompt_text, default=False):
                             try:
+                                # Pass existing plugin config so it can use as defaults
+                                existing_plugin_cfg = existing_config.get(key, {})
+                                if existing_plugin_cfg and isinstance(
+                                    existing_plugin_cfg, dict
+                                ):
+                                    config[key] = existing_plugin_cfg
                                 plugin_config = plugin.wizard_configure(config)
                                 if plugin_config:
                                     config[key] = plugin_config
@@ -844,11 +870,17 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
 
     # --- Write Configuration ---
 
+    # Merge with existing config (new values override, but preserve extra keys)
+    if existing_config:
+        merged = {**existing_config, **config}
+    else:
+        merged = config
+
     # Create parent directory if needed
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(config_path, "w") as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(merged, f, default_flow_style=False, sort_keys=False)
 
     click.echo(f"\n✅ Configuration written to {config_path}")
     click.echo("\nNext steps:")

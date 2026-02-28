@@ -111,6 +111,12 @@ def discover_plugins(plugins_dir: Path) -> list[type[Plugin]]:
             instance = create_plugin()
             plugin_classes.append(type(instance))
 
+        except ImportError as e:
+            _early_log(
+                "info",
+                "plugins",
+                f"Skipped {path.name}: missing dependency ({e})",
+            )
         except Exception as e:
             import traceback
 
@@ -155,7 +161,9 @@ def load_external_plugins(packages: list[str]) -> list[type]:
                 _early_log("warn", "plugins", f"{package_name} has no create_plugin()")
 
         except ImportError as e:
-            _early_log("error", "plugins", f"Failed to load {package_name}: {e}")
+            _early_log(
+                "info", "plugins", f"Skipped {package_name}: missing dependency ({e})"
+            )
         except Exception as e:
             _early_log("error", "plugins", f"Error loading {package_name}: {e}")
 

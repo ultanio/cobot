@@ -51,14 +51,82 @@ class WorkspacePlugin(Plugin):
         else:
             self._workspace = default_workspace
 
+    # Template files created on workspace init
+    TEMPLATES = {
+        "AGENTS.md": (
+            "# AGENTS.md\n\n"
+            "Instructions for AI agents working in this workspace.\n\n"
+            "## Role\n\n"
+            "Describe your agent's role and responsibilities here.\n\n"
+            "## Guidelines\n\n"
+            "- Ask before taking irreversible actions\n"
+            "- Write things down — no mental notes\n"
+            "- Document important decisions\n"
+        ),
+        "SOUL.md": (
+            "# SOUL.md\n\n"
+            "Define your agent's identity and personality.\n\n"
+            "## Identity\n\n"
+            "- **Name:** (pick a name)\n"
+            "- **Role:** (what do you do?)\n\n"
+            "## Traits\n\n"
+            "- Helpful\n"
+            "- Careful\n"
+            "- Collaborative\n"
+        ),
+        "USER.md": (
+            "# USER.md\n\n"
+            "Information about the human you work with.\n\n"
+            "- **Name:** \n"
+            "- **Timezone:** \n"
+            "- **Notes:** \n"
+        ),
+        "MEMORY.md": (
+            "# MEMORY.md\n\n"
+            "Long-term memory. Updated periodically from daily notes.\n\n"
+            "---\n\n"
+            "## Key Facts\n\n"
+            "## Lessons Learned\n"
+        ),
+        "BOOTSTRAP.md": (
+            "# BOOTSTRAP.md\n\n"
+            "First-run instructions. Follow these steps, then delete this file.\n\n"
+            "## Steps\n\n"
+            "1. Read SOUL.md — this is who you are\n"
+            "2. Read USER.md — this is who you help\n"
+            "3. Fill in IDENTITY.md with your chosen identity\n"
+            "4. Introduce yourself to your human\n"
+            "5. Delete this file when done\n"
+        ),
+        "IDENTITY.md": (
+            "# IDENTITY.md\n\n"
+            "Fill this in during your first conversation.\n\n"
+            "- **Name:** (pick something you like)\n"
+            "- **Creature:** (AI? robot? familiar? something weirder?)\n"
+            "- **Vibe:** (sharp? warm? chaotic? calm?)\n"
+            "- **Emoji:** (your signature — pick one that feels right)\n"
+        ),
+    }
+
     async def start(self) -> None:
-        """Create workspace directories if missing."""
+        """Create workspace directories and template files if missing."""
         self._workspace.mkdir(parents=True, exist_ok=True)
 
         # Create standard subdirectories
         subdirs = ["memory", "skills", "plugins", "logs"]
         for subdir in subdirs:
             (self._workspace / subdir).mkdir(exist_ok=True)
+
+        # Create template files (only if they don't exist)
+        templates_created = []
+        for filename, content in self.TEMPLATES.items():
+            filepath = self._workspace / filename
+            if not filepath.exists():
+                filepath.write_text(content)
+                templates_created.append(filename)
+
+        if templates_created:
+            self.log_info(f"Created templates: {', '.join(templates_created)}")
 
         self.log_info(f"{self._workspace}")
 
