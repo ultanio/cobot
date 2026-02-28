@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+###############################################################################
+# ⚠️  WARNING: THIS FILE IS VERSION-CONTROLLED                               #
+#                                                                             #
+# The canonical version lives in the git repo:                                #
+#   scripts/deploy-alpha.sh                                                   #
+#                                                                             #
+# The CI workflow copies this file to Alpha before every deploy.              #
+# If you edit the copy on olymp (/home/alpha/workspace/cobot/scripts/),       #
+# your changes WILL BE OVERWRITTEN on the next deploy!                        #
+#                                                                             #
+# → Always commit changes to git first, then let CI sync it.                  #
+###############################################################################
+#
 # Deploy latest cobot main to Alpha's instance
 # Usage: deploy-alpha.sh [forgejo|origin] [--no-restart]
 set -euo pipefail

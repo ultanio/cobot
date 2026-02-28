@@ -8,7 +8,10 @@ jobs:
   deploy:
     runs-on: python-3.12
     steps:
-      - name: Deploy via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -19,5 +22,21 @@ jobs:
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "$DEPLOY_HOST $DEPLOY_HOST_PUBKEY" > ~/.ssh/known_hosts
-          ssh -v -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" "echo deploy"
-          rm -f ~/.ssh/deploy_key
+
+      - name: Sync deploy script to Alpha
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          scp -i ~/.ssh/deploy_key scripts/deploy-alpha.sh "$DEPLOY_USER@$DEPLOY_HOST:~/workspace/cobot/scripts/deploy-alpha.sh"
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" "bash ~/workspace/cobot/scripts/deploy-alpha.sh forgejo"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
