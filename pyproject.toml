@@ -1,6 +1,6 @@
 [project]
 name = "cobot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Minimal self-sovereign AI agent with Nostr identity and Lightning wallet"
 readme = "README.md"
 license = {text = "MIT"}
