@@ -123,6 +123,19 @@ class FileDropPlugin(Plugin, CommunicationProvider):
             self.log_error(f"Failed to send filedrop reply to {recipient}: {e}")
             return False
 
+    def _quarantine_file(self, msg_file: Path) -> None:
+        """Move a corrupted file out of inbox to prevent infinite retry."""
+        try:
+            self._processed.add(msg_file.name)
+            processed_dir = msg_file.parent.parent / "processed"
+            processed_dir.mkdir(exist_ok=True)
+            quarantine_name = f"{msg_file.stem}_corrupted{msg_file.suffix}"
+            msg_file.rename(processed_dir / quarantine_name)
+            self.log_info(f"Quarantined {msg_file.name} as {quarantine_name}")
+        except Exception as e:
+            # Last resort: mark as processed so we stop retrying
+            self.log_error(f"Failed to quarantine {msg_file.name}: {e}")
+
     def poll_inbox(self) -> list[IncomingMessage]:
         """Poll inbox for new messages (implements session.poll_messages)."""
         if not self._inbox or not self._inbox.exists():
@@ -170,8 +183,13 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                 msg_file.rename(processed_dir / msg_file.name)
                 self.log_debug(f"Moved {msg_file.name} to processed")
 
+            except json.JSONDecodeError as e:
+                self.log_warn(f"Malformed JSON in {msg_file.name}: {e} — quarantining")
+                self._quarantine_file(msg_file)
+
             except Exception as e:
                 self.log_error(f"Error reading {msg_file}: {e}")
+                self._quarantine_file(msg_file)
 
         if messages:
             self.log_info(f"Polled {len(messages)} new message(s) from inbox")
@@ -211,8 +229,13 @@ class FileDropPlugin(Plugin, CommunicationProvider):
                 processed_dir.mkdir(exist_ok=True)
                 msg_file.rename(processed_dir / msg_file.name)
 
+            except json.JSONDecodeError as e:
+                self.log_warn(f"Malformed JSON in {msg_file.name}: {e} — quarantining")
+                self._quarantine_file(msg_file)
+
             except Exception as e:
                 self.log_error(f"Error reading {msg_file}: {e}")
+                self._quarantine_file(msg_file)
 
         return messages
 

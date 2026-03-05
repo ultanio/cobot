@@ -297,3 +297,76 @@ class TestReceive:
         plugin = create_plugin()
         plugin._inbox = None
         assert plugin.receive() == []
+
+
+class TestMalformedJsonHandling:
+    """Tests for #202: malformed JSON should be quarantined, not retried."""
+
+    def test_malformed_json_quarantined(self, tmp_path):
+        """Malformed JSON file should be moved to processed with _corrupted suffix."""
+        from ..plugin import FileDropPlugin as FiledropPlugin
+
+        plugin = FiledropPlugin()
+        inbox = tmp_path / "TestAgent" / "inbox"
+        inbox.mkdir(parents=True)
+        plugin._inbox = inbox
+        plugin._processed = set()
+        plugin._identity = "TestAgent"
+
+        # Write malformed JSON
+        bad_file = inbox / "bad_message.json"
+        bad_file.write_text("{invalid json content")
+
+        messages = plugin.poll_inbox()
+
+        assert len(messages) == 0
+        assert not bad_file.exists(), "Malformed file should be removed from inbox"
+        processed = tmp_path / "TestAgent" / "processed"
+        quarantined = processed / "bad_message_corrupted.json"
+        assert quarantined.exists(), "Malformed file should be quarantined"
+
+    def test_malformed_json_doesnt_block_good_messages(self, tmp_path):
+        """Good messages should still be processed after a bad one."""
+        import json
+        from ..plugin import FileDropPlugin as FiledropPlugin
+
+        plugin = FiledropPlugin()
+        inbox = tmp_path / "TestAgent" / "inbox"
+        inbox.mkdir(parents=True)
+        plugin._inbox = inbox
+        plugin._processed = set()
+        plugin._identity = "TestAgent"
+
+        # Bad file (sorts first alphabetically)
+        (inbox / "aaa_bad.json").write_text("not json")
+
+        # Good file
+        good_data = {
+            "from": "Zeus",
+            "subject": "Test",
+            "content": "Hello",
+            "timestamp": 1234567890,
+        }
+        (inbox / "zzz_good.json").write_text(json.dumps(good_data))
+
+        messages = plugin.poll_inbox()
+
+        assert len(messages) == 1
+        assert messages[0].sender_id == "Zeus"
+        assert not (inbox / "aaa_bad.json").exists()
+
+    def test_quarantine_idempotent(self, tmp_path):
+        """Polling twice shouldn't crash on already-quarantined files."""
+        from ..plugin import FileDropPlugin as FiledropPlugin
+
+        plugin = FiledropPlugin()
+        inbox = tmp_path / "TestAgent" / "inbox"
+        inbox.mkdir(parents=True)
+        plugin._inbox = inbox
+        plugin._processed = set()
+        plugin._identity = "TestAgent"
+
+        (inbox / "bad.json").write_text("{broken")
+        plugin.poll_inbox()  # First poll quarantines
+        messages = plugin.poll_inbox()  # Second poll should be clean
+        assert len(messages) == 0
