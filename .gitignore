@@ -65,3 +65,5 @@ logs/
 # Docker data
 data/
 workspace/
+_bmad/
+_bmad-output/

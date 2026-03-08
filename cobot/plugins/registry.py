@@ -172,32 +172,23 @@ class PluginRegistry:
                     implementations.append((plugin_id, plugin, method_name))
         return implementations
 
+    def set_load_order(self, order: list[str]) -> None:
+        """Set the plugin load order (from resolver).
+
+        Args:
+            order: Ordered list of plugin IDs
+        """
+        self._load_order = order
+
     def all_plugins(self) -> list[Plugin]:
         """Get all registered plugins in load order."""
         return [self._plugins[pid] for pid in self._load_order]
 
-    def _resolve_load_order(self) -> list[str]:
-        """Resolve plugin load order based on priority and dependencies."""
-        # Sort by priority first
-        sorted_ids = sorted(
-            self._plugins.keys(), key=lambda pid: self._plugins[pid].meta.priority
-        )
-
-        # TODO: Topological sort for dependencies
-        # For now, just use priority order
-        return sorted_ids
-
-    def _check_dependencies(self) -> None:
-        """Check that all plugin dependencies are satisfied."""
-        for plugin_id, plugin in self._plugins.items():
-            for dep in plugin.meta.dependencies:
-                if dep not in self._plugins:
-                    raise PluginError(
-                        f"Plugin '{plugin_id}' depends on '{dep}' which is not registered"
-                    )
-
     def configure_all(self, config: dict) -> None:
         """Inject configuration to all plugins.
+
+        Load order must be set before calling this method (by init_plugins
+        using the resolver). Falls back to priority sort if not set.
 
         Each plugin receives the full config dict so it can access:
         - Its own section: config.get(plugin_id, {})
@@ -206,8 +197,12 @@ class PluginRegistry:
         Args:
             config: Full configuration dict (from cobot.yml)
         """
-        self._load_order = self._resolve_load_order()
-        self._check_dependencies()
+        # If load order wasn't set by resolver, fall back to priority sort
+        if not self._load_order:
+            self._load_order = sorted(
+                self._plugins.keys(),
+                key=lambda pid: self._plugins[pid].meta.priority,
+            )
 
         for plugin_id in self._load_order:
             plugin = self._plugins[plugin_id]

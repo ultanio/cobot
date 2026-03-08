@@ -175,10 +175,11 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
 
     1. Discover plugins from directory
     2. Load external plugins from packages
-    3. Filter based on config (provider selection, enabled/disabled)
-    4. Register plugins
-    5. Configure all plugins
-    6. Start all plugins (async)
+    3. Build PluginNode dict from discovered classes
+    4. Resolve dependency tree (policy, transitive deps, topological sort)
+    5. Register resolved plugins in dependency order
+    6. Configure all plugins
+    7. Start all plugins (async)
 
     Args:
         plugins_dir: Directory containing plugin subdirectories
@@ -187,16 +188,38 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
     Returns:
         Configured and started PluginRegistry
     """
+    from .resolver import PluginNode, resolve
+
     config = config or {}
 
     # Get provider selection
     provider = config.get("provider", "ppq")
 
-    # Get explicit enable/disable lists
+    # Get plugin config
     plugins_config = config.get("plugins", {})
+    policy = plugins_config.get("policy", "enable")
     enabled_list = plugins_config.get("enabled", [])
     disabled_list = plugins_config.get("disabled", [])
     external_packages = plugins_config.get("external", [])
+
+    # Config validation
+    if policy == "enable" and enabled_list:
+        _early_log(
+            "warn",
+            "plugins",
+            "In enable-all mode (policy: enable), 'enabled' has no additional effect",
+        )
+    if policy == "disable" and disabled_list:
+        raise PluginError(
+            "Cannot use 'disabled' with policy: disable. "
+            "In disable mode, only plugins in 'enabled' (plus core) will load."
+        )
+    if policy == "disable" and not enabled_list:
+        _early_log(
+            "warn",
+            "plugins",
+            "policy: disable with no 'enabled' list — only core plugins will load",
+        )
 
     # Get or create registry
     registry = get_registry()
@@ -208,37 +231,58 @@ async def init_plugins(plugins_dir: Path, config: dict = None) -> PluginRegistry
     if external_packages:
         plugin_classes.extend(load_external_plugins(external_packages))
 
-    # Filter and register plugins
-    for plugin_class in plugin_classes:
-        plugin_id = plugin_class.meta.id
+    # Build PluginNode dict and class map from discovered classes
+    discovered: dict[str, PluginNode] = {}
+    class_map: dict[str, type] = {}
+    for cls in plugin_classes:
+        node = PluginNode(
+            id=cls.meta.id,
+            dependencies=list(cls.meta.dependencies),
+            optional_dependencies=list(cls.meta.optional_dependencies),
+            capabilities=list(cls.meta.capabilities),
+            consumes=list(cls.meta.consumes),
+            priority=cls.meta.priority,
+        )
+        discovered[cls.meta.id] = node
+        class_map[cls.meta.id] = cls
 
-        # Skip if explicitly disabled
-        if plugin_id in disabled_list:
-            _early_log("info", "plugins", f"Skipping disabled: {plugin_id}")
-            continue
+    # Resolve dependency tree
+    core_ids = ["config", "logger"]
+    result = resolve(
+        discovered=discovered,
+        policy=policy,
+        enabled=enabled_list,
+        disabled=disabled_list,
+        provider=provider,
+        core_ids=core_ids,
+    )
 
-        # Handle LLM provider selection - only load the configured one
-        if "llm" in plugin_class.meta.capabilities:
-            if plugin_id != provider:
-                _early_log(
-                    "info",
-                    "plugins",
-                    f"Skipping LLM provider: {plugin_id} (using {provider})",
-                )
-                continue
+    # Log diagnostics
+    _early_log(
+        "info",
+        "resolver",
+        f"Resolved {len(result.load_order)} plugins (policy: {policy}), "
+        f"skipped {len(result.skipped)}",
+    )
+    for pid in result.load_order:
+        reason = result.load_reasons[pid]
+        _early_log("info", "resolver", f"  Loading: {pid} [{reason}]")
+    for pid, reason in result.skipped.items():
+        _early_log("info", "resolver", f"  Skipped: {pid} [{reason}]")
 
-        # If enabled_list is specified, only load those plugins
-        if enabled_list and plugin_id not in enabled_list:
-            # But always load core plugins
-            core_plugins = ["config", "logger", provider]
-            if plugin_id not in core_plugins:
-                _early_log("info", "plugins", f"Skipping non-enabled: {plugin_id}")
-                continue
+    # Log warnings from resolver
+    for warning in result.warnings:
+        _early_log("warn", "resolver", warning)
 
+    # Register in resolved order
+    for pid in result.load_order:
         try:
-            registry.register(plugin_class)
+            registry.register(class_map[pid])
         except PluginError as e:
             _early_log("error", "plugins", f"Failed to register: {e}")
+
+    # Set load order directly from resolver (no re-resolution needed)
+    registry.set_load_order(result.load_order)
 
     # Configure all plugins (sync - just config assignment)
     registry.configure_all(config)
