@@ -111,11 +111,29 @@ class TestCobot:
         bot = Cobot(mock_registry)
         assert bot.registry == mock_registry
 
-    def test_run_no_loops(self, mock_registry):
-        """Should exit gracefully when no loop plugins registered."""
+    def test_run_no_plugins(self, mock_registry):
+        """Should exit gracefully when no plugins registered at all."""
+        mock_registry.all_plugins.return_value = []
         bot = Cobot(mock_registry)
         asyncio.run(bot.run())
         # Should not crash
+
+    def test_run_headless_mode(self, mock_registry):
+        """Should run in headless mode when plugins exist but no loops."""
+        mock_registry.all_plugins.return_value = [Mock()]
+
+        async def _run_headless():
+            bot = Cobot(mock_registry)
+            task = asyncio.create_task(bot.run())
+            await asyncio.sleep(0.05)  # Let it start
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        asyncio.run(_run_headless())
+        mock_registry.stop_all.assert_called_once()
 
 
 class TestLoopPlugin:

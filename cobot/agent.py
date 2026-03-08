@@ -24,7 +24,22 @@ class Cobot:
         loops = self.registry.all_with_capability("loop")
 
         if not loops:
-            print("Error: No loop plugins registered", file=sys.stderr)
+            # Check if there are any plugins at all (headless mode)
+            all_plugins = self.registry.all_plugins()
+            if not all_plugins:
+                print("Error: No plugins registered", file=sys.stderr)
+                return
+
+            print(
+                "Running in headless mode (no loop plugins)",
+                file=sys.stderr,
+            )
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                pass
+            finally:
+                await self.registry.stop_all()
             return
 
         print(
@@ -52,7 +67,10 @@ class Cobot:
         """
         loop_plugin = self.registry.all_with_capability("loop")
         if not loop_plugin:
-            print("Error: No loop plugins registered", file=sys.stderr)
+            print(
+                "Stdin mode requires a loop plugin. None registered.",
+                file=sys.stderr,
+            )
             return
 
         loop = loop_plugin[0]
