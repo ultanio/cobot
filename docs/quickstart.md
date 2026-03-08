@@ -61,7 +61,7 @@ Long poll timeout (seconds) [30]:
 Configure User Authorization (Control who can interact with the bot)? [y/N]: y
 Enable pairing? [Y/n]: y
 Add Telegram owner ID? [Y/n]: y
-Your Telegram user ID: 769134210
+Your Telegram user ID: 123456789
   ✓ User Authorization configured
 
 ✅ Configuration saved to cobot.yml
@@ -121,6 +121,35 @@ cobot status              # Check if running
 cobot config show         # View config (secrets masked)
 cobot config set key val  # Update config
 cobot wizard plugins      # List available plugins
+```
+
+## Docker
+
+Run Cobot in a container instead of installing Python locally.
+
+**1. Set up your environment:**
+
+```bash
+cp .env.example .env
+# Edit .env with your API key (e.g. OpenRouter, PPQ)
+```
+
+**2. Run the wizard (interactive setup):**
+
+```bash
+docker compose run cobot wizard init --home
+```
+
+The wizard writes config to `~/.cobot/cobot.yml` inside the container,
+which maps to `./data/cobot.yml` on your host. Choose your LLM provider
+(PPQ, OpenRouter, or Ollama) and the wizard handles the rest.
+
+**3. Run:**
+
+```bash
+docker compose up -d                  # start in background
+docker compose logs -f                # watch logs
+docker compose run cobot run --stdin  # interactive terminal mode
 ```
 
 ## Next Steps

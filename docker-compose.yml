@@ -1,0 +1,14 @@
+services:
+  cobot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/home/cobot/.cobot
+      - ./workspace:/workspace
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cobot", "status", "--json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

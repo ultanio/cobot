@@ -44,6 +44,10 @@ def read_pid() -> Optional[int]:
 
     try:
         pid = int(pid_file.read_text().strip())
+        # In Docker, our process IS PID 1 — don't treat it as "already running"
+        if pid == 1 and os.getpid() == 1:
+            pid_file.unlink(missing_ok=True)
+            return None
         # Check if process exists
         os.kill(pid, 0)
         return pid
@@ -785,21 +789,30 @@ def init(non_interactive: bool, home: bool, config_path_opt: Optional[str]):
         # Provider
         click.echo("\n🧠 LLM Provider\n")
         provider = click.prompt(
-            "Provider", type=click.Choice(["ppq", "ollama"]), default=config["provider"]
+            "Provider",
+            type=click.Choice(["ppq", "openrouter", "ollama"]),
+            default=config["provider"],
         )
-        config["provider"] = provider
+        # OpenRouter uses same config structure as PPQ (OpenAI-compatible API)
+        config["provider"] = "ppq" if provider == "openrouter" else provider
 
-        if provider == "ppq":
-            click.echo("\n  PPQ Configuration (api.ppq.ai)")
+        if provider in ("ppq", "openrouter"):
+            if provider == "openrouter":
+                click.echo("\n  OpenRouter Configuration (openrouter.ai)")
+                default_base = "https://openrouter.ai/api/v1"
+                default_model = "anthropic/claude-sonnet-4"
+            else:
+                click.echo("\n  PPQ Configuration (api.ppq.ai)")
+                default_base = "https://api.ppq.ai/v1"
+                default_model = "openai/gpt-4o"
             api_key = click.prompt(
                 "  API key (or use env var)",
                 default="${PPQ_API_KEY}",
                 show_default=True,
             )
-            model = click.prompt("  Model", default="openai/gpt-4o")
+            model = click.prompt("  Model", default=default_model)
             config["ppq"] = {
-                "api_base": "https://api.ppq.ai/v1",
-                # Note: ${VAR} doesn't expand in YAML - use env var directly or set value
+                "api_base": default_base,
                 "model": model,
             }
             if api_key != "${PPQ_API_KEY}":

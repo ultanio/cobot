@@ -61,3 +61,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Docker data
+data/
+workspace/

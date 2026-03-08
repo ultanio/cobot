@@ -14,8 +14,10 @@ COPY cobot/ ./cobot/
 # Install cobot with all extras
 RUN pip install --no-cache-dir -e ".[all]"
 
-# Create non-root user
-RUN useradd -m -u 1000 cobot
+# Create non-root user, give ownership of app dir and workspace
+RUN useradd -m -u 1000 cobot \
+    && chown -R cobot:cobot /app \
+    && mkdir -p /workspace && chown cobot:cobot /workspace
 USER cobot
 
 # Default config location
