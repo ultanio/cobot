@@ -667,13 +667,10 @@ def register_plugin_commands():
 
         # Create a lightweight registry for CLI command registration
         registry = PluginRegistry()
-        instances = []
         for plugin_class in plugin_classes:
             try:
-                instance = plugin_class()
+                instance = registry.register(plugin_class)
                 instance._registry = registry
-                registry.register(instance)
-                instances.append(instance)
             except Exception:
                 pass
 
