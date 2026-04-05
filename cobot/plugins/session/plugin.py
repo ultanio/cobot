@@ -3,6 +3,17 @@
 This plugin implements communication.* extension points and defines
 session.* extension points for channel plugins to implement.
 
+Extension points defined:
+  Provider (channels implement these):
+    - session.receive: Poll for messages
+    - session.send: Send a message
+    - session.typing: Show typing indicator
+    - session.presence: Set status
+
+  Observer (plugins implement these to watch message flow):
+    - session.on_receive: Called for each incoming message after polling
+    - session.on_send: Called after a message is successfully sent
+
 Priority: 10 (after communication, before channels)
 """
 
@@ -14,7 +25,9 @@ class SessionPlugin(Plugin):
     """Session orchestrator - routes messages between channels and agent.
 
     Implements communication.* extension points (for agent to use).
-    Defines session.* extension points (for channels to implement).
+    Defines session.* extension points:
+      - Provider points (channels implement): session.receive, session.send, etc.
+      - Observer points (plugins implement): session.on_receive, session.on_send
     """
 
     meta = PluginMeta(
@@ -28,12 +41,16 @@ class SessionPlugin(Plugin):
             "communication.typing": "typing",
             "communication.channels": "get_channels",
         },
-        # Define session extension points for channels
+        # Define session extension points
         extension_points=[
+            # Provider points — channels implement these
             "session.receive",  # () -> list[IncomingMessage]
             "session.send",  # (OutgoingMessage) -> bool
             "session.typing",  # (channel_id: str) -> None
             "session.presence",  # (status: str) -> None
+            # Observer points — plugins implement these to watch message flow
+            "session.on_receive",  # (IncomingMessage) -> None
+            "session.on_send",  # (OutgoingMessage) -> None
         ],
         priority=10,  # After communication (5), before channels (30)
     )
@@ -55,6 +72,28 @@ class SessionPlugin(Plugin):
     async def stop(self) -> None:
         """Nothing to clean up."""
         pass
+
+    def _notify_observers(self, extension_point: str, message) -> None:
+        """Notify all plugins implementing an observer extension point.
+
+        Args:
+            extension_point: "session.on_receive" or "session.on_send"
+            message: IncomingMessage or OutgoingMessage
+        """
+        if not self._registry:
+            return
+
+        for plugin_id, plugin, method_name in self._registry.get_implementations(
+            extension_point
+        ):
+            try:
+                method = getattr(plugin, method_name)
+                method(message)
+            except Exception as e:
+                print(
+                    f"[Session] Observer error ({plugin_id}.{method_name}): {e}",
+                    file=sys.stderr,
+                )
 
     def _log_channels(self) -> None:
         """Log discovered channels."""
@@ -92,10 +131,11 @@ class SessionPlugin(Plugin):
                 method = getattr(plugin, method_name)
                 channel_messages = method()
 
-                # Ensure channel_type is set
+                # Ensure channel_type is set, notify observers
                 for msg in channel_messages:
                     if not msg.channel_type:
                         msg.channel_type = plugin_id
+                    self._notify_observers("session.on_receive", msg)
                     messages.append(msg)
 
             except Exception as e:
@@ -128,7 +168,10 @@ class SessionPlugin(Plugin):
             if plugin_id == channel_type:
                 try:
                     method = getattr(plugin, method_name)
-                    return method(message)
+                    result = method(message)
+                    if result:
+                        self._notify_observers("session.on_send", message)
+                    return result
                 except Exception as e:
                     self.log_error(f"Error sending via {plugin_id}: {e}")
                     return False
